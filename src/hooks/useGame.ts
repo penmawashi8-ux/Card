@@ -36,6 +36,12 @@ export function useGame(
   const [isAnimating, setIsAnimating] = useState(false);
   const animatingRef = useRef(false);
 
+  // Always keep a ref to the latest state so setTimeout callbacks don't use stale closures
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   // ── Online sync: subscribe to room changes ──────────────────────────────
   useEffect(() => {
     if (!roomId) return;
@@ -52,18 +58,25 @@ export function useGame(
   }, [roomId]);
 
   // ── CPU automation ──────────────────────────────────────────────────────
+  // NOTE: do NOT gate on animatingRef here — the effect fires right after
+  // setState (while animation is still running), and if we return early the
+  // effect will never re-fire once the animation finishes, freezing the CPU.
+  // performActionInternal already guards itself with animatingRef, and the
+  // minimum timer delay (800 ms) is longer than the animation window (600 ms).
   useEffect(() => {
     if (state.phase !== 'playing') return;
 
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (currentPlayer.type !== 'cpu') return;
-    if (animatingRef.current) return;
 
     const delay = 800 + Math.random() * 400;
     const timer = setTimeout(() => {
+      const latest = stateRef.current;
+      if (latest.phase !== 'playing') return;
+      if (latest.players[latest.currentPlayerIndex].type !== 'cpu') return;
       try {
-        const decision = getCpuDecision(state);
-        performActionInternal(state, decision.source, decision.circleIndex, decision.handCardId);
+        const decision = getCpuDecision(latest);
+        performActionInternal(latest, decision.source, decision.circleIndex, decision.handCardId);
       } catch (err) {
         console.error('[useGame] CPU decision error:', err);
       }
@@ -137,11 +150,6 @@ export function useGame(
   );
 
   // ── Public action (always uses latest state via ref) ────────────────────
-  const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
   const performAction = useCallback(
     (source: 'circle' | 'hand', circleIndex?: number, handCardId?: string) => {
       // Only the designated human player can perform actions
