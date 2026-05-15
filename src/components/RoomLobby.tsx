@@ -37,18 +37,22 @@ export function RoomLobby({
           オンラインプレイには設定が必要です
         </h3>
         <p className="text-white/60 text-sm mb-4">
-          オンライン対戦を有効にするには、Supabaseの設定が必要です。
+          Vercel の環境変数に Firebase の設定を追加してください。
         </p>
-        <div className="bg-black/30 rounded-xl p-4 text-left text-xs text-white/50 space-y-2 font-mono">
-          <p className="text-white/70 font-sans font-medium text-sm mb-2">設定手順:</p>
-          <p>1. <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-blue-400 underline">supabase.com</a> でプロジェクト作成</p>
-          <p>2. プロジェクトの URL と anon key を取得</p>
-          <p>3. <code className="bg-white/10 px-1 rounded">.env.local</code> に追記:</p>
-          <div className="bg-black/40 rounded p-2 mt-1 text-green-400">
-            <p>NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co</p>
-            <p>NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...</p>
+        <div className="bg-black/30 rounded-xl p-4 text-left text-xs text-white/50 space-y-2">
+          <p className="text-white/70 font-semibold text-sm mb-2">設定手順:</p>
+          <p>1. <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-blue-400 underline">console.firebase.google.com</a> でプロジェクト作成</p>
+          <p>2. <strong className="text-white/70">Database と Storage → Realtime Database</strong> を作成（テストモード）</p>
+          <p>3. プロジェクト設定 → マイアプリ → Config を選択してキーをコピー</p>
+          <p>4. Vercel の <strong className="text-white/70">Environment Variables</strong> に追加:</p>
+          <div className="bg-black/40 rounded p-2 mt-1 text-green-400 font-mono text-xs break-all">
+            <p>NEXT_PUBLIC_FIREBASE_API_KEY</p>
+            <p>NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN</p>
+            <p>NEXT_PUBLIC_FIREBASE_DATABASE_URL</p>
+            <p>NEXT_PUBLIC_FIREBASE_PROJECT_ID</p>
+            <p>NEXT_PUBLIC_FIREBASE_APP_ID</p>
           </div>
-          <p className="mt-2">4. 開発サーバーを再起動</p>
+          <p className="mt-2">5. Vercel で Redeploy</p>
         </div>
       </div>
     );
