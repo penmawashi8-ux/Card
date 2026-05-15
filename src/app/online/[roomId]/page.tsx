@@ -1,22 +1,20 @@
 'use client';
 
-import { useEffect, useState, useCallback, useId } from 'react';
+import { useEffect, useState, useId } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import type { GameState, Room, GameSettings, PlayerSetupConfig } from '@/types/game';
+import type { GameState, Room, PlayerSetupConfig } from '@/types/game';
 import { initializeGame } from '@/lib/gameLogic';
 import { useGame } from '@/hooks/useGame';
 import {
-  isSupabaseEnabled,
+  isFirebaseEnabled,
   getRoom,
   subscribeToRoom,
   updateGameState,
-} from '@/lib/supabase';
+} from '@/lib/firebase';
 import GameBoard from '@/components/GameBoard';
 import RoundEndScreen from '@/components/RoundEndScreen';
 import GameEndScreen from '@/components/GameEndScreen';
-import SoundToggle from '@/components/SoundToggle';
-
-// ─── Page component ───────────────────────────────────────────────────────────
+import type { Suit } from '@/types/game';
 
 export default function OnlineRoomPage() {
   const router = useRouter();
@@ -28,14 +26,13 @@ export default function OnlineRoomPage() {
   const [loading, setLoading] = useState(true);
   const playerId = useId();
 
-  // ── Fetch initial room data ─────────────────────────────────────────────
   useEffect(() => {
     if (!roomId) {
       setError('ルームIDが無効です。');
       setLoading(false);
       return;
     }
-    if (!isSupabaseEnabled) {
+    if (!isFirebaseEnabled) {
       setError('オンライン機能が設定されていません。');
       setLoading(false);
       return;
@@ -65,10 +62,7 @@ export default function OnlineRoomPage() {
     }
 
     fetchRoom();
-
-    return () => {
-      subscription?.unsubscribe();
-    };
+    return () => { subscription?.unsubscribe(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
@@ -86,10 +80,7 @@ export default function OnlineRoomPage() {
         <div className="glass p-8 max-w-sm w-full text-center">
           <div className="text-4xl mb-4">⚠️</div>
           <p className="text-white/80 mb-6">{error ?? 'ルームが見つかりません。'}</p>
-          <button
-            onClick={() => router.push('/online')}
-            className="btn-primary w-full"
-          >
+          <button onClick={() => router.push('/online')} className="btn-primary w-full">
             ロビーへ戻る
           </button>
         </div>
@@ -97,20 +88,28 @@ export default function OnlineRoomPage() {
     );
   }
 
-  // ── Waiting lobby (game not started yet) ───────────────────────────────
   if (!room.gameState || room.status === 'waiting') {
     return (
       <WaitingRoom
         room={room}
         playerId={playerId}
         onStartGame={async () => {
-          // Host starts the game: initialise state and persist it
-          const playerConfigs: PlayerSetupConfig[] = room.players.map((rp) => ({
+          // Pad with CPU players up to the setting's playerCount
+          const humanPlayers: PlayerSetupConfig[] = room.players.map((rp) => ({
             name: rp.name,
-            type: 'human',
-            cpuDifficulty: 'normal',
+            type: 'human' as const,
           }));
-          const state = initializeGame(room.settings, playerConfigs);
+          const needed = room.settings.playerCount - humanPlayers.length;
+          const cpuPlayers: PlayerSetupConfig[] = Array.from({ length: Math.max(0, needed) }, (_, i) => ({
+            name: `CPU ${i + 1}`,
+            type: 'cpu' as const,
+          }));
+          const allPlayers = [...humanPlayers, ...cpuPlayers];
+          // Ensure at least 3 players
+          while (allPlayers.length < 3) {
+            allPlayers.push({ name: `CPU ${allPlayers.length}`, type: 'cpu' });
+          }
+          const state = initializeGame(room.settings, allPlayers.slice(0, room.settings.playerCount));
           await updateGameState(room.id, state);
         }}
         onLeave={() => router.push('/online')}
@@ -118,11 +117,8 @@ export default function OnlineRoomPage() {
     );
   }
 
-  // ── Active game ────────────────────────────────────────────────────────
   const myRoomPlayer = room.players.find((rp) => rp.id === playerId);
-  const playerIndex = myRoomPlayer
-    ? room.players.indexOf(myRoomPlayer)
-    : 0;
+  const playerIndex = myRoomPlayer ? room.players.indexOf(myRoomPlayer) : 0;
 
   return (
     <ActiveOnlineGame
@@ -135,7 +131,7 @@ export default function OnlineRoomPage() {
   );
 }
 
-// ─── Waiting room lobby ───────────────────────────────────────────────────────
+// ─── Waiting room ─────────────────────────────────────────────────────────────
 
 interface WaitingRoomProps {
   room: Room;
@@ -150,7 +146,6 @@ function WaitingRoom({ room, playerId, onStartGame, onLeave }: WaitingRoomProps)
   return (
     <div className="min-h-screen felt-table flex flex-col items-center justify-center p-4">
       <div className="glass p-6 max-w-sm w-full">
-        {/* Room code */}
         <div className="text-center mb-6">
           <p className="text-white/50 text-xs mb-1">ルームコード</p>
           <div className="text-4xl font-mono font-bold text-yellow-400 tracking-widest">
@@ -159,54 +154,42 @@ function WaitingRoom({ room, playerId, onStartGame, onLeave }: WaitingRoomProps)
           <p className="text-white/40 text-xs mt-1">友達にこのコードを共有してください</p>
         </div>
 
-        {/* Players list */}
         <div className="mb-6">
           <p className="text-white/60 text-xs uppercase tracking-wider mb-2">
-            参加者 ({room.players.length}人)
+            参加者 ({room.players.length}/{room.settings.playerCount}人)
           </p>
           <div className="space-y-2">
             {room.players.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2"
-              >
+              <div key={p.id} className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
                 <span className="text-sm">{p.isHost ? '👑' : '👤'}</span>
                 <span className="text-white/80 text-sm flex-1">{p.name}</span>
-                {p.id === playerId && (
-                  <span className="text-xs text-green-400">あなた</span>
-                )}
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    p.isReady ? 'bg-green-400' : 'bg-gray-500'
-                  }`}
-                />
+                {p.id === playerId && <span className="text-xs text-green-400">あなた</span>}
               </div>
             ))}
+            {room.players.length < room.settings.playerCount && (
+              <div className="text-white/30 text-xs text-center py-2 animate-pulse">
+                あと{room.settings.playerCount - room.players.length}人待っています… (CPUが補填されます)
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Settings summary */}
         <div className="bg-black/20 rounded-xl px-4 py-3 mb-6 text-xs text-white/50 space-y-1">
           <p>ラウンド数: <span className="text-white/70">{room.settings.rounds}回</span></p>
-          <p>
-            同数字ペナルティ:{' '}
-            <span className="text-white/70">
-              {room.settings.penaltyOnSameNumber ? 'あり' : 'なし'}
-            </span>
-          </p>
+          <p>プレイヤー数: <span className="text-white/70">{room.settings.playerCount}人</span></p>
+          <p>自動ページワン: <span className="text-white/70">{room.settings.autoPageOne ? 'あり' : 'なし'}</span></p>
+          <p>ジョーカー上がり禁止: <span className="text-white/70">{room.settings.banJokerWin ? 'あり' : 'なし'}</span></p>
         </div>
 
         <div className="space-y-2">
-          {isHost && (
+          {isHost ? (
             <button
               onClick={onStartGame}
-              disabled={room.players.length < 2}
-              className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-stone-900 font-bold rounded-xl transition-all"
+              className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-stone-900 font-bold rounded-xl transition-all"
             >
-              ゲームを開始する ({room.players.length}人)
+              ゲームを開始する
             </button>
-          )}
-          {!isHost && (
+          ) : (
             <p className="text-center text-white/40 text-sm py-2 animate-pulse">
               ホストがゲームを開始するのを待っています…
             </p>
@@ -240,68 +223,54 @@ function ActiveOnlineGame({
   roomId,
   onReturnToLobby,
 }: ActiveOnlineGameProps) {
-  const { state, isAnimating, performAction, startNextRound, resetGame } =
-    useGame(initialState, { playerId, roomId });
-
-  const handleFlipCircleCard = useCallback(
-    (index: number) => performAction('circle', index),
-    [performAction],
-  );
-
-  const handlePlayFromHand = useCallback(
-    (cardId: string) => performAction('hand', undefined, cardId),
-    [performAction],
-  );
+  const {
+    state,
+    onPlayCard,
+    onDeclareJokerSuit,
+    onDeclarePageOne,
+    onContinueAfterRound,
+    onResetGame,
+  } = useGame(initialState, { playerId, roomId });
 
   return (
     <div className="min-h-screen felt-table relative">
-      {/* Top bar */}
       <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-2 bg-black/30 backdrop-blur-sm border-b border-white/10">
         <div className="flex items-center gap-2">
-          <span className="text-2xl" aria-hidden>🐷</span>
-          <span className="text-white font-bold text-lg hidden sm:block">
-            ぶたのしっぽ
-          </span>
+          <span className="text-2xl" aria-hidden>🃏</span>
+          <span className="text-white font-bold text-lg hidden sm:block">ページワン</span>
           <span className="text-green-400 text-xs bg-green-900/60 px-2 py-0.5 rounded-full">
             オンライン
           </span>
-          <span className="text-white/50 text-sm">
-            ラウンド{' '}
-            <span className="text-yellow-300 font-bold">{state.currentRound}</span>
-            {' '}/{' '}{state.settings.rounds}
-          </span>
         </div>
-
-        <div className="flex items-center gap-2">
-          <SoundToggle />
-          <button
-            type="button"
-            onClick={onReturnToLobby}
-            className="btn-secondary text-xs px-3 py-1.5"
-          >
-            退出
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onReturnToLobby}
+          className="btn-secondary text-xs px-3 py-1.5"
+        >
+          退出
+        </button>
       </div>
 
       <main>
         <GameBoard
           state={state}
           humanPlayerIndex={humanPlayerIndex}
-          onFlipCircleCard={handleFlipCircleCard}
-          onPlayFromHand={handlePlayFromHand}
-          isAnimating={isAnimating}
+          onPlayCard={onPlayCard}
+          onDeclareJokerSuit={onDeclareJokerSuit}
+          onDeclarePageOne={onDeclarePageOne}
+          isOnline={true}
+          myPlayerId={playerId}
         />
       </main>
 
       {state.phase === 'round_end' && (
-        <RoundEndScreen state={state} onNextRound={startNextRound} />
+        <RoundEndScreen state={state} onContinue={onContinueAfterRound} />
       )}
 
       {state.phase === 'game_end' && (
         <GameEndScreen
           state={state}
-          onPlayAgain={resetGame}
+          onPlayAgain={onResetGame}
           onReturnToMenu={onReturnToLobby}
         />
       )}

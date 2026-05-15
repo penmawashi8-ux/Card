@@ -25,18 +25,20 @@ function getValueLabel(value: number): string {
 }
 
 const SIZES = {
-  sm: { w: 40, h: 56, text: 'text-xs', symbol: 'text-sm', pig: 10 },
-  md: { w: 56, h: 80, text: 'text-sm', symbol: 'text-xl', pig: 14 },
-  lg: { w: 80, h: 112, text: 'text-base', symbol: 'text-3xl', pig: 20 },
+  xs: { w: 32, h: 44, text: 'text-[9px]', symbol: 'text-xs', jokerText: 'text-[7px]' },
+  sm: { w: 44, h: 62, text: 'text-xs', symbol: 'text-sm', jokerText: 'text-[9px]' },
+  md: { w: 60, h: 84, text: 'text-sm', symbol: 'text-xl', jokerText: 'text-xs' },
+  lg: { w: 80, h: 112, text: 'text-base', symbol: 'text-3xl', jokerText: 'text-sm' },
 };
 
 interface CardComponentProps {
-  card?: Card;
-  size?: 'sm' | 'md' | 'lg';
+  card?: Card;         // undefined = card back (face-down)
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   onClick?: () => void;
   selected?: boolean;
   disabled?: boolean;
   className?: string;
+  highlight?: boolean; // glow highlight for playable cards
 }
 
 export function CardComponent({
@@ -46,24 +48,31 @@ export function CardComponent({
   selected = false,
   disabled = false,
   className = '',
+  highlight = false,
 }: CardComponentProps) {
   const s = SIZES[size];
 
   const baseClasses = [
     'relative rounded-lg border-2 inline-flex flex-col justify-between p-1 select-none transition-all duration-150',
-    selected ? 'border-yellow-400 -translate-y-2 shadow-lg shadow-yellow-400/40' : 'border-gray-300',
+    selected ? 'border-yellow-400 -translate-y-3 shadow-lg shadow-yellow-400/60 ring-2 ring-yellow-400' : '',
+    highlight && !selected ? 'border-green-400 shadow-md shadow-green-400/40' : '',
+    !selected && !highlight ? 'border-gray-300' : '',
     disabled
-      ? 'opacity-50 cursor-not-allowed'
+      ? 'opacity-40 cursor-not-allowed'
       : onClick
-      ? 'cursor-pointer hover:brightness-110 active:scale-95'
+      ? 'cursor-pointer hover:-translate-y-1 hover:shadow-lg active:scale-95'
       : 'cursor-default',
     className,
   ]
     .filter(Boolean)
     .join(' ');
 
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') onClick?.();
+  };
+
   if (!card) {
-    // Card back – diagonal stripe pattern via inline style
+    // Card back
     return (
       <div
         className={`${baseClasses} bg-blue-800 border-blue-600`}
@@ -72,29 +81,51 @@ export function CardComponent({
           height: s.h,
           backgroundImage:
             'repeating-linear-gradient(45deg, #1e3a8a 0px, #1e3a8a 6px, #1d4ed8 6px, #1d4ed8 12px)',
-          boxShadow: '2px 2px 6px rgba(0,0,0,0.4)',
+          boxShadow: '2px 2px 6px rgba(0,0,0,0.5)',
         }}
         onClick={disabled ? undefined : onClick}
         role={onClick && !disabled ? 'button' : undefined}
         tabIndex={onClick && !disabled ? 0 : undefined}
-        onKeyDown={
-          onClick && !disabled
-            ? (e) => e.key === 'Enter' || e.key === ' ' ? onClick() : undefined
-            : undefined
-        }
+        onKeyDown={onClick && !disabled ? handleKey : undefined}
+        aria-label="Card (face-down)"
       >
-        <div className="absolute inset-1 rounded border border-blue-500/40 flex items-center justify-center">
-          <span className="text-blue-300 opacity-60" style={{ fontSize: s.pig }}>
-            🐷
-          </span>
+        <div className="absolute inset-1 rounded border border-blue-400/30 flex items-center justify-center">
+          <span className="text-blue-300 opacity-50 font-bold text-xs">P1</span>
         </div>
       </div>
     );
   }
 
-  const color = SUIT_COLORS[card.suit];
-  const symbol = SUIT_SYMBOLS[card.suit];
-  const label = getValueLabel(card.value);
+  // Joker
+  if (card.isJoker) {
+    return (
+      <div
+        className={`${baseClasses} bg-gradient-to-br from-purple-100 to-yellow-100 border-purple-400`}
+        style={{
+          width: s.w,
+          height: s.h,
+          boxShadow: '2px 2px 8px rgba(128,0,128,0.4)',
+        }}
+        onClick={disabled ? undefined : onClick}
+        role={onClick && !disabled ? 'button' : undefined}
+        tabIndex={onClick && !disabled ? 0 : undefined}
+        onKeyDown={onClick && !disabled ? handleKey : undefined}
+        aria-label="Joker"
+      >
+        <div className={`${s.text} font-bold leading-none text-purple-700`}>J</div>
+        <div className="absolute inset-0 flex items-center justify-center flex-col gap-0.5">
+          <span className="text-purple-600 font-black" style={{ fontSize: s.w * 0.32 }}>★</span>
+        </div>
+        <div className={`${s.jokerText} font-bold leading-none text-purple-700 self-end rotate-180`}>
+          JOKER
+        </div>
+      </div>
+    );
+  }
+
+  const color = card.suit ? SUIT_COLORS[card.suit] : 'text-stone-900';
+  const symbol = card.suit ? SUIT_SYMBOLS[card.suit] : '';
+  const label = card.value ? getValueLabel(card.value) : '';
 
   return (
     <div
@@ -107,11 +138,8 @@ export function CardComponent({
       onClick={disabled ? undefined : onClick}
       role={onClick && !disabled ? 'button' : undefined}
       tabIndex={onClick && !disabled ? 0 : undefined}
-      onKeyDown={
-        onClick && !disabled
-          ? (e) => e.key === 'Enter' || e.key === ' ' ? onClick() : undefined
-          : undefined
-      }
+      onKeyDown={onClick && !disabled ? handleKey : undefined}
+      aria-label={`${label} of ${card.suit}`}
     >
       {/* Top-left corner */}
       <div className={`${s.text} font-bold leading-none ${color}`}>

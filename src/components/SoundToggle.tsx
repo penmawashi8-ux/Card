@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { soundManager } from '@/lib/sounds';
 
 export default function SoundToggle() {
@@ -15,10 +15,10 @@ export default function SoundToggle() {
     <button
       type="button"
       onClick={toggle}
-      title={enabled ? 'Mute sounds' : 'Unmute sounds'}
+      title={enabled ? 'サウンドをオフ' : 'サウンドをオン'}
       className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70
                  hover:text-white transition-all text-lg leading-none"
-      aria-label={enabled ? 'Mute sounds' : 'Unmute sounds'}
+      aria-label={enabled ? 'サウンドをオフ' : 'サウンドをオン'}
     >
       {enabled ? '🔊' : '🔇'}
     </button>

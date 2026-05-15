@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import type { GameState } from '@/types/game';
 import { getStandings } from '@/lib/gameLogic';
 
@@ -22,32 +21,31 @@ export default function GameEndScreen({
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
       <div className="glass max-w-lg w-full p-8 text-center animate-bounce-in">
-        {/* Trophy / emoji */}
+        {/* Trophy emoji */}
         <div className="text-6xl mb-4">
-          {isWinnerHuman ? '🏆' : '🐷'}
+          {isWinnerHuman ? '🏆' : '🎴'}
         </div>
 
         <h2 className="text-3xl font-bold text-yellow-300 mb-2">
-          {isWinnerHuman ? 'You Win!' : `${winner.name} Wins!`}
+          {isWinnerHuman ? 'あなたの勝ち！' : `${winner.name} の勝ち！`}
         </h2>
         <p className="text-white/60 mb-2">
           {isWinnerHuman
-            ? 'Congratulations! You have the fewest penalty cards.'
-            : `${winner.name} squealed to victory!`}
+            ? 'おめでとうございます！'
+            : `${winner.name} がゲームを制しました！`}
         </p>
         <p className="text-white/40 text-sm mb-8">
-          Game complete after {state.settings.rounds} round
-          {state.settings.rounds !== 1 ? 's' : ''}
+          {state.totalRounds} ラウンド終了
         </p>
 
         {/* Final standings */}
         <div className="bg-black/40 rounded-xl p-4 mb-8">
           <h3 className="text-white/60 text-xs uppercase tracking-wide mb-4">
-            Final Standings
+            最終順位
           </h3>
           <div className="space-y-2">
             {standings.map((player, rank) => {
-              const medals = ['🥇', '🥈', '🥉'];
+              const medals = ['🥇', '🥈', '🥉', '4️⃣'];
               const medal = medals[rank] ?? `${rank + 1}.`;
               return (
                 <div
@@ -71,21 +69,23 @@ export default function GameEndScreen({
                         {player.name}
                       </p>
                       <p className="text-white/40 text-xs">
-                        {player.type === 'cpu'
-                          ? `CPU · ${player.cpuDifficulty ?? 'normal'}`
-                          : 'Human'}
+                        {player.type === 'cpu' ? 'CPU' : '人間'}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p
                       className={`font-bold text-lg ${
-                        rank === 0 ? 'text-yellow-300' : 'text-white/70'
+                        rank === 0
+                          ? 'text-yellow-300'
+                          : player.score >= 0
+                          ? 'text-green-400'
+                          : 'text-red-400'
                       }`}
                     >
-                      {player.totalPenaltyCount}
+                      {player.score > 0 ? '+' : ''}{player.score}
                     </p>
-                    <p className="text-white/40 text-xs">penalty cards</p>
+                    <p className="text-white/40 text-xs">累計スコア</p>
                   </div>
                 </div>
               );
@@ -96,10 +96,10 @@ export default function GameEndScreen({
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3">
           <button onClick={onPlayAgain} className="btn-primary flex-1 text-base">
-            Play Again
+            もう一度プレイ
           </button>
           <button onClick={onReturnToMenu} className="btn-secondary flex-1 text-base">
-            Main Menu
+            メニューへ
           </button>
         </div>
       </div>

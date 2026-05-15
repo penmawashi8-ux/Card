@@ -119,6 +119,14 @@ export interface PlayerSetupConfig {
   type: PlayerType;
 }
 
+// ─── Action Result ────────────────────────────────────────────────────────────
+
+export interface ActionResult {
+  newState: GameState;
+  isPenalty?: boolean;
+  penaltyCards?: Card[];
+}
+
 // ─── Utility constants ────────────────────────────────────────────────────────
 
 export const SUIT_SYMBOLS: Record<Suit, string> = {

@@ -1,196 +1,285 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { GameState } from '@/types/game';
-import { playCard, startNextRound as gameStartNextRound, initializeGame } from '@/lib/gameLogic';
-import { getCpuDecision } from '@/lib/cpuAI';
+import type { GameState, Suit, GameSettings, PlayerSetupConfig } from '@/types/game';
+import {
+  playLeadCard,
+  playFollowCard,
+  declareJokerSuit,
+  declarePageOne,
+  checkAndAutoPageOne,
+  drawOneCard,
+  startDrawing,
+  advanceAfterTrickResult,
+  startNextRound as gameStartNextRound,
+  initializeGame,
+  hasPlayableCard,
+} from '@/lib/gameLogic';
+import { chooseCpuCard, chooseCpuSuit } from '@/lib/cpuAI';
 import { soundManager } from '@/lib/sounds';
-import { updateGameState, subscribeToRoom } from '@/lib/supabase';
+import { updateGameState, subscribeToRoom } from '@/lib/firebase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface UseGameOptions {
-  playerId: string;
-  roomId?: string;
-}
-
 interface UseGameReturn {
   state: GameState;
-  isAnimating: boolean;
-  performAction: (
-    source: 'circle' | 'hand',
-    circleIndex?: number,
-    handCardId?: string,
-  ) => void;
-  startNextRound: () => void;
-  resetGame: () => void;
+  onPlayCard: (cardId: string) => void;
+  onDeclareJokerSuit: (suit: Suit) => void;
+  onDeclarePageOne: () => void;
+  onContinueAfterRound: () => void;
+  onResetGame: () => void;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGame(
   initialState: GameState,
-  { playerId, roomId }: UseGameOptions,
+  options?: { roomId?: string; playerId?: string }
 ): UseGameReturn {
   const [state, setState] = useState<GameState>(initialState);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const animatingRef = useRef(false);
+  const stateRef = useRef<GameState>(initialState);
 
-  // Always keep a ref to the latest state so setTimeout callbacks don't use stale closures
-  const stateRef = useRef(state);
+  const roomId = options?.roomId;
+
+  // Keep stateRef in sync
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
-  // ── Online sync: subscribe to room changes ──────────────────────────────
+  // Push state and keep ref in sync
+  const applyState = useCallback((newState: GameState) => {
+    stateRef.current = newState;
+    setState(newState);
+    if (roomId) {
+      updateGameState(roomId, newState).catch(console.error);
+    }
+  }, [roomId]);
+
+  // ── Online sync ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!roomId) return;
-
-    const channel = subscribeToRoom(roomId, (room) => {
+    const sub = subscribeToRoom(roomId, (room) => {
       if (room.gameState) {
+        stateRef.current = room.gameState;
         setState(room.gameState);
       }
     });
-
-    return () => {
-      channel?.unsubscribe?.();
-    };
+    return () => sub?.unsubscribe();
   }, [roomId]);
 
-  // ── CPU automation ──────────────────────────────────────────────────────
-  // NOTE: do NOT gate on animatingRef here — the effect fires right after
-  // setState (while animation is still running), and if we return early the
-  // effect will never re-fire once the animation finishes, freezing the CPU.
-  // performActionInternal already guards itself with animatingRef, and the
-  // minimum timer delay (800 ms) is longer than the animation window (600 ms).
+  // ── Auto-drawing loop ───────────────────────────────────────────────────
+  // When phase is auto_drawing, draw one card at a time (500ms interval)
+  // until the player can play, then play that card automatically.
   useEffect(() => {
-    if (state.phase !== 'playing') return;
+    const current = stateRef.current;
+    if (current.phase !== 'auto_drawing') return;
 
-    const currentPlayer = state.players[state.currentPlayerIndex];
-    if (currentPlayer.type !== 'cpu') return;
+    const timer = setTimeout(() => {
+      const s = stateRef.current;
+      if (s.phase !== 'auto_drawing') return;
+
+      const playerIndex = s.currentPlayerIndex;
+      const player = s.players[playerIndex];
+
+      // Check if player can now play (drawn a matching card)
+      if (hasPlayableCard(player, s.currentTrick)) {
+        // For CPU: auto-play the card immediately
+        if (player.type === 'cpu') {
+          let nextState: GameState;
+          try {
+            const cardId = chooseCpuCard({ ...s, phase: 'following' });
+            nextState = playFollowCard({ ...s, phase: 'following' }, cardId);
+            soundManager.playCardPlay();
+          } catch {
+            // Fallback
+            return;
+          }
+          const afterPageOne = checkAndAutoPageOne(nextState);
+          // If auto page one triggered, announce it
+          if (afterPageOne.message !== nextState.message) {
+            soundManager.playPageOne();
+          }
+          applyState(afterPageOne);
+        } else {
+          // Human player: switch to 'following' phase so they can click their card
+          applyState({ ...s, phase: 'following', message: `${player.name} のターン（引いたカードを出してください）` });
+        }
+        return;
+      }
+
+      // Draw one more card
+      const { newState, drawnCard } = drawOneCard(s);
+      if (!drawnCard) {
+        // No cards left to draw - play any card (shouldn't normally happen)
+        applyState({ ...newState, phase: 'following' });
+        return;
+      }
+      soundManager.playCardDraw();
+      applyState(newState);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [state.phase, state.drawnCardsThisTurn, state.drawingPlayerId, applyState]);
+
+  // ── CPU turn automation ─────────────────────────────────────────────────
+  useEffect(() => {
+    const s = stateRef.current;
+
+    // Only act on CPU phases
+    if (s.phase !== 'leading' && s.phase !== 'following' && s.phase !== 'joker_suit_declare') return;
+    const player = s.players[s.currentPlayerIndex];
+    if (player.type !== 'cpu') return;
 
     const delay = 800 + Math.random() * 400;
+
     const timer = setTimeout(() => {
-      const latest = stateRef.current;
-      if (latest.phase !== 'playing') return;
-      if (latest.players[latest.currentPlayerIndex].type !== 'cpu') return;
+      const current = stateRef.current;
+      if (current.phase !== 'leading' && current.phase !== 'following' && current.phase !== 'joker_suit_declare') return;
+      const cp = current.players[current.currentPlayerIndex];
+      if (cp.type !== 'cpu') return;
+
       try {
-        const decision = getCpuDecision(latest);
-        performActionInternal(latest, decision.source, decision.circleIndex, decision.handCardId);
+        if (current.phase === 'joker_suit_declare') {
+          const suit = chooseCpuSuit(current);
+          const next = declareJokerSuit(current, suit);
+          applyState(next);
+          return;
+        }
+
+        // Check if CPU needs to draw first (following but no playable card)
+        if (current.phase === 'following' && !hasPlayableCard(cp, current.currentTrick)) {
+          const drawing = startDrawing(current);
+          applyState(drawing);
+          return;
+        }
+
+        const cardId = chooseCpuCard(current);
+        let nextState: GameState;
+        if (current.phase === 'leading') {
+          nextState = playLeadCard(current, cardId);
+        } else {
+          nextState = playFollowCard(current, cardId);
+        }
+        soundManager.playCardPlay();
+
+        const afterPageOne = checkAndAutoPageOne(nextState);
+        if (afterPageOne.message !== nextState.message) {
+          soundManager.playPageOne();
+        }
+        applyState(afterPageOne);
       } catch (err) {
-        console.error('[useGame] CPU decision error:', err);
+        console.error('[useGame] CPU action error:', err);
       }
     }, delay);
 
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.currentPlayerIndex, state.phase]);
+  }, [state.phase, state.currentPlayerIndex, applyState]);
 
-  // ── Core action performer ───────────────────────────────────────────────
+  // ── Trick result auto-advance ─────────────────────────────────────────
+  useEffect(() => {
+    if (state.phase !== 'trick_result') return;
 
-  const performActionInternal = useCallback(
-    (
-      currentState: GameState,
-      source: 'circle' | 'hand',
-      circleIndex?: number,
-      handCardId?: string,
-    ) => {
-      if (currentState.phase !== 'playing') return;
-      if (animatingRef.current) return;
+    soundManager.playTrickEnd();
 
-      animatingRef.current = true;
-      setIsAnimating(true);
-
-      // Play pre-action sound
-      if (source === 'circle') {
-        soundManager.playCardFlip();
+    const timer = setTimeout(() => {
+      const current = stateRef.current;
+      if (current.phase !== 'trick_result') return;
+      const next = advanceAfterTrickResult(current);
+      if (next.phase === 'round_end' || next.phase === 'game_end') {
+        soundManager.playRoundEnd();
       }
+      applyState(next);
+    }, 2000);
 
-      let result;
-      try {
-        result = playCard(currentState, source, circleIndex, handCardId);
-      } catch (err) {
-        console.error('[useGame] playCard error:', err);
-        animatingRef.current = false;
-        setIsAnimating(false);
+    return () => clearTimeout(timer);
+  }, [state.phase, applyState]);
+
+  // ── Auto page_one_pending for CPU ─────────────────────────────────────
+  useEffect(() => {
+    if (state.phase !== 'page_one_pending') return;
+    const player = state.players[state.currentPlayerIndex];
+    if (player.type !== 'cpu') return;
+
+    // CPU auto-declares
+    const timer = setTimeout(() => {
+      const current = stateRef.current;
+      if (current.phase !== 'page_one_pending') return;
+      const cp = current.players[current.currentPlayerIndex];
+      if (cp.type !== 'cpu') return;
+      soundManager.playPageOne();
+      const next = declarePageOne(current);
+      applyState(next);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [state.phase, state.currentPlayerIndex, applyState]);
+
+  // ── Public actions ───────────────────────────────────────────────────
+
+  const onPlayCard = useCallback((cardId: string) => {
+    const s = stateRef.current;
+    const player = s.players[s.currentPlayerIndex];
+    if (player.type !== 'human') return;
+
+    try {
+      let nextState: GameState;
+      if (s.phase === 'leading') {
+        nextState = playLeadCard(s, cardId);
+      } else if (s.phase === 'following') {
+        nextState = playFollowCard(s, cardId);
+      } else {
         return;
       }
+      soundManager.playCardPlay();
 
-      // Play post-action sounds
-      if (result.isPenalty) {
-        soundManager.playPenalty();
-      } else {
-        soundManager.playCardPlace();
+      const afterPageOne = checkAndAutoPageOne(nextState);
+      if (afterPageOne.message !== nextState.message) {
+        soundManager.playPageOne();
       }
-
-      // Handle phase transition sounds
-      const newPhase = result.newState.phase;
-      if (newPhase === 'round_end') {
-        setTimeout(() => soundManager.playRoundEnd(), 300);
-      } else if (newPhase === 'game_end') {
-        setTimeout(() => soundManager.playWin(), 300);
-      }
-
-      setState(result.newState);
-
-      // Sync to Supabase if online game
-      if (roomId) {
-        updateGameState(roomId, result.newState).catch((err) =>
-          console.error('[useGame] updateGameState error:', err),
-        );
-      }
-
-      // Clear animation state after a brief window
-      setTimeout(() => {
-        animatingRef.current = false;
-        setIsAnimating(false);
-      }, 600);
-    },
-    [roomId],
-  );
-
-  // ── Public action (always uses latest state via ref) ────────────────────
-  const performAction = useCallback(
-    (source: 'circle' | 'hand', circleIndex?: number, handCardId?: string) => {
-      // Only the designated human player can perform actions
-      const currentState = stateRef.current;
-      const currentPlayer = currentState.players[currentState.currentPlayerIndex];
-      if (currentPlayer.type !== 'human') return;
-      if (currentPlayer.id !== playerId && currentPlayer.id.startsWith('player-')) {
-        // Allow action for local human player in CPU game (player-0 is always human-controlled)
-      }
-      performActionInternal(currentState, source, circleIndex, handCardId);
-    },
-    [performActionInternal, playerId],
-  );
-
-  // ── Round transition ────────────────────────────────────────────────────
-  const startNextRound = useCallback(() => {
-    setState((prev) => {
-      if (prev.phase !== 'round_end') return prev;
-      const nextState = gameStartNextRound(prev);
-
-      if (roomId) {
-        updateGameState(roomId, nextState).catch(console.error);
-      }
-
-      return nextState;
-    });
-  }, [roomId]);
-
-  // ── Full reset ──────────────────────────────────────────────────────────
-  const resetGame = useCallback(() => {
-    const fresh = initializeGame(initialState.settings, initialState.players.map((p) => ({
-      name: p.name,
-      type: p.type,
-      cpuDifficulty: p.cpuDifficulty ?? 'normal',
-    })));
-    setState(fresh);
-
-    if (roomId) {
-      updateGameState(roomId, fresh).catch(console.error);
+      applyState(afterPageOne);
+    } catch (err) {
+      console.error('[useGame] onPlayCard error:', err);
     }
-  }, [initialState, roomId]);
+  }, [applyState]);
 
-  return { state, isAnimating, performAction, startNextRound, resetGame };
+  const onDeclareJokerSuit = useCallback((suit: Suit) => {
+    const s = stateRef.current;
+    if (s.phase !== 'joker_suit_declare') return;
+    const next = declareJokerSuit(s, suit);
+    applyState(next);
+  }, [applyState]);
+
+  const onDeclarePageOne = useCallback(() => {
+    const s = stateRef.current;
+    if (s.phase !== 'page_one_pending') return;
+    soundManager.playPageOne();
+    const next = declarePageOne(s);
+    applyState(next);
+  }, [applyState]);
+
+  const onContinueAfterRound = useCallback(() => {
+    const s = stateRef.current;
+    if (s.phase === 'round_end') {
+      const next = gameStartNextRound(s);
+      applyState(next);
+    }
+  }, [applyState]);
+
+  const onResetGame = useCallback(() => {
+    const s = stateRef.current;
+    const fresh = initializeGame(
+      s.settings,
+      s.players.map((p) => ({ name: p.name, type: p.type }))
+    );
+    applyState(fresh);
+  }, [applyState]);
+
+  return {
+    state,
+    onPlayCard,
+    onDeclareJokerSuit,
+    onDeclarePageOne,
+    onContinueAfterRound,
+    onResetGame,
+  };
 }

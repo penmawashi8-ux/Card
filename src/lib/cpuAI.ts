@@ -1,152 +1,153 @@
-import type { GameState, Card, Suit } from '@/types/game';
+import type { Card, GameState, Suit, Player } from '@/types/game';
+import { cardStrength } from '@/types/game';
 import {
-  getCircleCardIndices,
-  canPlayFromHand,
-  getTopCard,
-  checkPenalty,
+  hasPlayableCard,
+  getEffectiveSuit,
 } from '@/lib/gameLogic';
 
-export type CpuDecision =
-  | { source: 'circle'; circleIndex: number; handCardId?: undefined }
-  | { source: 'hand'; handCardId: string; circleIndex?: undefined };
-
-// ─── Public entry point ───────────────────────────────────────────────────────
-
-export function getCpuDecision(state: GameState): CpuDecision {
-  const player = state.players[state.currentPlayerIndex];
-  const difficulty = player.cpuDifficulty ?? 'normal';
-
-  switch (difficulty) {
-    case 'easy':
-      return easyDecision(state);
-    case 'normal':
-      return normalDecision(state);
-    case 'hard':
-      return hardDecision(state);
-  }
-}
-
-// ─── Easy AI ─────────────────────────────────────────────────────────────────
-// 30 % chance to play from hand (random card), 70 % flip random circle card.
-
-function easyDecision(state: GameState): CpuDecision {
-  const hasHand = canPlayFromHand(state);
-  const circleIndices = getCircleCardIndices(state);
-
-  if (hasHand && Math.random() < 0.3) {
-    const player = state.players[state.currentPlayerIndex];
-    const randomCard = player.hand[Math.floor(Math.random() * player.hand.length)];
-    return { source: 'hand', handCardId: randomCard.id };
-  }
-
-  if (circleIndices.length === 0) {
-    // Forced to play from hand
-    const player = state.players[state.currentPlayerIndex];
-    const randomCard = player.hand[Math.floor(Math.random() * player.hand.length)];
-    return { source: 'hand', handCardId: randomCard.id };
-  }
-
-  const randomCircleIdx =
-    circleIndices[Math.floor(Math.random() * circleIndices.length)];
-  return { source: 'circle', circleIndex: randomCircleIdx };
-}
-
-// ─── Normal AI ────────────────────────────────────────────────────────────────
-// If the player has any safe hand card (different suit from top pile card),
-// play the first one found; otherwise flip a random circle card.
-
-function normalDecision(state: GameState): CpuDecision {
-  const player = state.players[state.currentPlayerIndex];
-  const topCard = getTopCard(state);
-  const circleIndices = getCircleCardIndices(state);
-
-  if (canPlayFromHand(state) && topCard) {
-    const safeHandCard = player.hand.find(
-      (c) => !checkPenalty(c, topCard, state.settings),
-    );
-    if (safeHandCard) {
-      return { source: 'hand', handCardId: safeHandCard.id };
-    }
-  }
-
-  if (circleIndices.length > 0) {
-    const idx = circleIndices[Math.floor(Math.random() * circleIndices.length)];
-    return { source: 'circle', circleIndex: idx };
-  }
-
-  // No circle cards – must play from hand (even if it's risky)
-  const fallback = player.hand[0];
-  return { source: 'hand', handCardId: fallback.id };
-}
-
-// ─── Hard AI ─────────────────────────────────────────────────────────────────
-// Play the safest hand card based on suit frequency in the pile; if no safe
-// hand card exists, flip from circle.  "Safest" = card whose suit is least
-// represented in the central pile (lower risk if opponent flips same suit next).
-
-function hardDecision(state: GameState): CpuDecision {
-  const player = state.players[state.currentPlayerIndex];
-  const topCard = getTopCard(state);
-  const circleIndices = getCircleCardIndices(state);
-
-  if (canPlayFromHand(state) && topCard) {
-    // Find all hand cards that are safe to play right now
-    const safeCards = player.hand.filter(
-      (c) => !checkPenalty(c, topCard, state.settings),
-    );
-
-    if (safeCards.length > 0) {
-      // Among safe cards pick the one whose suit appears MOST in the circle
-      // (we know those suits, making them safer to play – opponents are less
-      // likely to match immediately after us on the next flip).
-      const suitScore = buildSuitRiskScore(state);
-      const best = safeCards.reduce(
-        (prev: Card, curr: Card) =>
-          suitScore[curr.suit] <= suitScore[prev.suit] ? curr : prev,
-        safeCards[0],
-      );
-      return { source: 'hand', handCardId: best.id };
-    }
-  }
-
-  if (circleIndices.length > 0) {
-    // No safe hand card → flip from circle (unknown, so random)
-    const idx = circleIndices[Math.floor(Math.random() * circleIndices.length)];
-    return { source: 'circle', circleIndex: idx };
-  }
-
-  // Last resort: play any hand card (least risky suit)
-  if (player.hand.length > 0) {
-    const suitScore = buildSuitRiskScore(state);
-    const best = player.hand.reduce(
-      (prev: Card, curr: Card) =>
-        suitScore[curr.suit] <= suitScore[prev.suit] ? curr : prev,
-      player.hand[0],
-    );
-    return { source: 'hand', handCardId: best.id };
-  }
-
-  // Should never reach here in a valid game state
-  throw new Error('CPU hard: no valid move found.');
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── CPU AI for Page One ──────────────────────────────────────────────────────
 
 /**
- * Returns a risk score per suit based on how many cards of that suit are
- * already in the central pile.  Higher score = riskier to play (because the
- * pile is "heavy" with that suit, so future players are also more likely to
- * match it).
+ * Determine which card a CPU player should play.
+ * Called when phase is 'leading' or 'following' and current player is CPU.
  */
-function buildSuitRiskScore(state: GameState): Record<Suit, number> {
-  const score: Record<Suit, number> = {
-    hearts:   0,
-    diamonds: 0,
-    clubs:    0,
-    spades:   0,
-  };
-  for (const card of state.centralPile) {
-    score[card.suit]++;
+export function chooseCpuCard(state: GameState): string {
+  const player = state.players[state.currentPlayerIndex];
+  const { phase } = state;
+
+  if (phase === 'leading') {
+    return chooseLeadCard(player, state);
+  } else {
+    return chooseFollowCard(player, state);
   }
-  return score;
+}
+
+/**
+ * Choose a lead card for CPU.
+ * Strategy: play highest card for strength. If hand has 2 cards (playing would
+ * trigger Page One), prefer playing the weaker card to retain the stronger for later.
+ */
+function chooseLeadCard(player: Player, _state: GameState): string {
+  const { hand } = player;
+  if (hand.length === 0) throw new Error('CPU has no cards to play');
+
+  // Sort by strength descending
+  const sorted = [...hand].sort((a, b) => cardStrength(b) - cardStrength(a));
+
+  // If we have 2 cards and would end up with 1 (Page One), play weaker to retain
+  // the strong card — but only if we have a non-joker alternative
+  if (hand.length === 2) {
+    const hasNonJoker = sorted.some((c) => !c.isJoker);
+    if (hasNonJoker) {
+      // Play weakest non-joker
+      const nonJokers = sorted.filter((c) => !c.isJoker);
+      const weakest = nonJokers[nonJokers.length - 1];
+      return weakest.id;
+    }
+  }
+
+  // Play highest strength card
+  return sorted[0].id;
+}
+
+/**
+ * Choose a follow card for CPU.
+ * Strategy:
+ * - If we can win with a matching suit card, play the lowest winning card
+ *   (win efficiently without wasting high cards)
+ * - If we can't win, play the weakest matching suit card
+ * - Joker: use only if no matching suit cards available
+ */
+function chooseFollowCard(player: Player, state: GameState): string {
+  const { hand } = player;
+  const { currentTrick } = state;
+
+  const effectiveSuit = getEffectiveSuit(currentTrick);
+
+  // Separate playable cards
+  const matchingSuit = hand.filter(
+    (c) => !c.isJoker && c.suit === effectiveSuit
+  );
+  const jokers = hand.filter((c) => c.isJoker);
+
+  // Determine current highest played card strength in the trick (matching suit only)
+  let currentHighestStrength = -1;
+  for (const tc of currentTrick.cards) {
+    if (tc.card.isJoker) {
+      currentHighestStrength = 99; // Joker already played – we can't beat it
+      break;
+    }
+    if (tc.card.suit === effectiveSuit) {
+      const s = cardStrength(tc.card);
+      if (s > currentHighestStrength) currentHighestStrength = s;
+    }
+  }
+
+  if (matchingSuit.length > 0) {
+    const sortedMatch = [...matchingSuit].sort(
+      (a, b) => cardStrength(a) - cardStrength(b) // ascending
+    );
+
+    // Can we beat current highest?
+    const winningCards = sortedMatch.filter(
+      (c) => cardStrength(c) > currentHighestStrength
+    );
+
+    if (winningCards.length > 0) {
+      // Play lowest winning card (efficient win)
+      return winningCards[0].id;
+    }
+
+    // Can't win with suit – play weakest matching card
+    return sortedMatch[0].id;
+  }
+
+  // No matching suit – must play Joker (should always have one since we were told to follow)
+  if (jokers.length > 0) {
+    return jokers[0].id;
+  }
+
+  // Shouldn't happen – caller should have checked hasPlayableCard
+  throw new Error('CPU has no playable card');
+}
+
+/**
+ * Choose which suit to declare when Joker is played as lead.
+ * Strategy: declare the suit we have the most of (to maintain strength).
+ * If no other cards, pick any suit.
+ */
+export function chooseCpuSuit(state: GameState): Suit {
+  const player = state.players[state.currentPlayerIndex];
+  const nonJokers = player.hand.filter((c) => !c.isJoker);
+
+  if (nonJokers.length === 0) {
+    return 'spades'; // arbitrary default
+  }
+
+  // Count suits
+  const suitCounts: Record<Suit, number> = {
+    hearts: 0,
+    diamonds: 0,
+    clubs: 0,
+    spades: 0,
+  };
+  for (const card of nonJokers) {
+    if (card.suit) suitCounts[card.suit]++;
+  }
+
+  // Return suit with most cards
+  const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
+  return suits.reduce((best, suit) =>
+    suitCounts[suit] > suitCounts[best] ? suit : best
+  );
+}
+
+/**
+ * Whether a CPU player needs to draw (auto_drawing phase).
+ */
+export function cpuNeedsToDrawFirst(state: GameState): boolean {
+  const player = state.players[state.currentPlayerIndex];
+  if (player.type !== 'cpu') return false;
+  if (state.phase !== 'following') return false;
+  return !hasPlayableCard(player, state.currentTrick);
 }
