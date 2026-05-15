@@ -6,12 +6,11 @@ import type { GameState, Room, GameSettings, PlayerSetupConfig } from '@/types/g
 import { initializeGame } from '@/lib/gameLogic';
 import { useGame } from '@/hooks/useGame';
 import {
-  supabase,
   isSupabaseEnabled,
+  getRoom,
   subscribeToRoom,
   updateGameState,
 } from '@/lib/supabase';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import GameBoard from '@/components/GameBoard';
 import RoundEndScreen from '@/components/RoundEndScreen';
 import GameEndScreen from '@/components/GameEndScreen';
@@ -36,42 +35,26 @@ export default function OnlineRoomPage() {
       setLoading(false);
       return;
     }
-    if (!isSupabaseEnabled || !supabase) {
+    if (!isSupabaseEnabled) {
       setError('オンライン機能が設定されていません。');
       setLoading(false);
       return;
     }
 
-    let channel: RealtimeChannel | null = null;
+    let subscription: { unsubscribe: () => void } | null = null;
 
     async function fetchRoom() {
       try {
-        const { data, error: fetchErr } = await supabase!
-          .from('rooms')
-          .select('*')
-          .eq('id', roomId)
-          .single();
-
-        if (fetchErr || !data) {
+        const fetchedRoom = await getRoom(roomId!);
+        if (!fetchedRoom) {
           setError('ルームが見つかりません。');
           setLoading(false);
           return;
         }
-
-        const mappedRoom: Room = {
-          id: data.id,
-          code: data.code,
-          hostId: data.host_id,
-          status: data.status,
-          gameState: data.game_state ?? null,
-          settings: data.settings,
-          players: data.players ?? [],
-        };
-        setRoom(mappedRoom);
+        setRoom(fetchedRoom);
         setLoading(false);
 
-        // Subscribe to realtime updates
-        channel = subscribeToRoom(roomId!, (updatedRoom) => {
+        subscription = subscribeToRoom(roomId!, (updatedRoom) => {
           setRoom(updatedRoom);
         });
       } catch (err) {
@@ -84,7 +67,7 @@ export default function OnlineRoomPage() {
     fetchRoom();
 
     return () => {
-      channel?.unsubscribe();
+      subscription?.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
@@ -121,7 +104,6 @@ export default function OnlineRoomPage() {
         room={room}
         playerId={playerId}
         onStartGame={async () => {
-          if (!supabase) return;
           // Host starts the game: initialise state and persist it
           const playerConfigs: PlayerSetupConfig[] = room.players.map((rp) => ({
             name: rp.name,

@@ -47,7 +47,7 @@ export function useGame(
     });
 
     return () => {
-      channel?.unsubscribe();
+      channel?.unsubscribe?.();
     };
   }, [roomId]);
 

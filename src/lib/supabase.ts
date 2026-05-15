@@ -1,175 +1,191 @@
-import { createClient, RealtimeChannel } from '@supabase/supabase-js';
+/**
+ * Online multiplayer backend — Firebase Realtime Database
+ * Drop-in replacement for the original Supabase implementation.
+ * Same exported function names so no other files need changing.
+ */
+
+import { initializeApp, getApps } from 'firebase/app';
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  update,
+  onValue,
+  push,
+  type Database,
+} from 'firebase/database';
+
 import type { GameSettings, GameState, Room, PlayerSetupConfig } from '@/types/game';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// ─── Firebase init ────────────────────────────────────────────────────────────
 
-export const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+const firebaseConfig = {
+  apiKey:            process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain:        process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL:       process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId:         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket:     process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
 
-export const isSupabaseEnabled = !!supabase;
+const isConfigured = !!process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
 
-// ─── Room code generator ──────────────────────────────────────────────────────
+let db: Database | null = null;
+
+function getDb(): Database | null {
+  if (!isConfigured) return null;
+  if (db) return db;
+  if (typeof window === 'undefined') return null;
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  db = getDatabase(app);
+  return db;
+}
+
+/** True when Firebase env vars are present. Used by UI to show/hide online features. */
+export const isSupabaseEnabled = isConfigured;
+
+// ─── Room code ────────────────────────────────────────────────────────────────
 
 function generateRoomCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // omit confusable chars
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
 
-// ─── Room management ──────────────────────────────────────────────────────────
+// ─── Data mapper ──────────────────────────────────────────────────────────────
 
-/**
- * Creates a new room in Supabase.
- * Returns the created Room or null if Supabase is not configured.
- */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapToRoom(id: string, data: Record<string, any>): Room {
+  return {
+    id,
+    code:      data.code,
+    hostId:    data.hostId,
+    status:    data.status,
+    gameState: data.gameState ?? null,
+    settings:  data.settings,
+    players:   data.players ?? [],
+  };
+}
+
+// ─── createRoom ───────────────────────────────────────────────────────────────
+
 export async function createRoom(
   hostId: string,
   settings: GameSettings,
   playerConfigs: PlayerSetupConfig[],
 ): Promise<Room | null> {
-  if (!supabase) return null;
+  const database = getDb();
+  if (!database) return null;
 
   const code = generateRoomCode();
+  const newRoomRef = push(ref(database, 'rooms'));
 
-  const roomPayload = {
+  const roomData = {
     code,
-    host_id: hostId,
-    status: 'waiting' as const,
-    game_state: null,
+    hostId,
+    status: 'waiting',
+    gameState: null,
     settings,
     players: playerConfigs.map((cfg, i) => ({
-      id: i === 0 ? hostId : `player-${i}`,
-      name: cfg.name,
-      isHost: i === 0,
+      id:      i === 0 ? hostId : `player-${i}`,
+      name:    cfg.name,
+      isHost:  i === 0,
       isReady: i === 0,
     })),
   };
 
-  const { data, error } = await supabase
-    .from('rooms')
-    .insert(roomPayload)
-    .select()
-    .single();
-
-  if (error || !data) {
-    console.error('[supabase] createRoom error:', error);
+  try {
+    await set(newRoomRef, roomData);
+    await set(ref(database, `roomCodes/${code}`), newRoomRef.key);
+    return mapToRoom(newRoomRef.key!, roomData);
+  } catch (err) {
+    console.error('[firebase] createRoom error:', err);
     return null;
   }
-
-  return mapRowToRoom(data);
 }
 
-/**
- * Joins an existing room by code.
- * Returns the updated Room or null on failure.
- */
+// ─── joinRoom ─────────────────────────────────────────────────────────────────
+
 export async function joinRoom(
   code: string,
   playerId: string,
   playerName: string,
 ): Promise<Room | null> {
-  if (!supabase) return null;
+  const database = getDb();
+  if (!database) return null;
 
-  // Fetch room
-  const { data: room, error: fetchError } = await supabase
-    .from('rooms')
-    .select('*')
-    .eq('code', code.toUpperCase())
-    .eq('status', 'waiting')
-    .single();
+  try {
+    const codeSnap = await get(ref(database, `roomCodes/${code.toUpperCase()}`));
+    if (!codeSnap.exists()) return null;
+    const roomId = codeSnap.val() as string;
 
-  if (fetchError || !room) {
-    console.error('[supabase] joinRoom fetch error:', fetchError);
+    const roomSnap = await get(ref(database, `rooms/${roomId}`));
+    if (!roomSnap.exists()) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = roomSnap.val() as Record<string, any>;
+    if (data.status !== 'waiting') return null;
+
+    const players = [
+      ...(data.players ?? []),
+      { id: playerId, name: playerName, isHost: false, isReady: false },
+    ];
+
+    await update(ref(database, `rooms/${roomId}`), { players });
+    return mapToRoom(roomId, { ...data, players });
+  } catch (err) {
+    console.error('[firebase] joinRoom error:', err);
     return null;
   }
-
-  const players: Room['players'] = [
-    ...(room.players ?? []),
-    { id: playerId, name: playerName, isHost: false, isReady: false },
-  ];
-
-  const { data: updated, error: updateError } = await supabase
-    .from('rooms')
-    .update({ players })
-    .eq('id', room.id)
-    .select()
-    .single();
-
-  if (updateError || !updated) {
-    console.error('[supabase] joinRoom update error:', updateError);
-    return null;
-  }
-
-  return mapRowToRoom(updated);
 }
 
-/**
- * Persists the current game state to Supabase.
- */
+// ─── getRoom ──────────────────────────────────────────────────────────────────
+
+export async function getRoom(roomId: string): Promise<Room | null> {
+  const database = getDb();
+  if (!database) return null;
+  try {
+    const snap = await get(ref(database, `rooms/${roomId}`));
+    if (!snap.exists()) return null;
+    return mapToRoom(roomId, snap.val());
+  } catch (err) {
+    console.error('[firebase] getRoom error:', err);
+    return null;
+  }
+}
+
+// ─── updateGameState ──────────────────────────────────────────────────────────
+
 export async function updateGameState(
   roomId: string,
   gameState: GameState,
 ): Promise<void> {
-  if (!supabase) return;
-
-  const { error } = await supabase
-    .from('rooms')
-    .update({ game_state: gameState, status: 'playing' })
-    .eq('id', roomId);
-
-  if (error) {
-    console.error('[supabase] updateGameState error:', error);
+  const database = getDb();
+  if (!database) return;
+  try {
+    await update(ref(database, `rooms/${roomId}`), { gameState, status: 'playing' });
+  } catch (err) {
+    console.error('[firebase] updateGameState error:', err);
   }
 }
 
-/**
- * Subscribes to real-time changes on a room row.
- * Returns the RealtimeChannel (call .unsubscribe() on cleanup) or null.
- */
+// ─── subscribeToRoom ──────────────────────────────────────────────────────────
+
 export function subscribeToRoom(
   roomId: string,
   callback: (room: Room) => void,
-): RealtimeChannel | null {
-  if (!supabase) return null;
+): { unsubscribe: () => void } | null {
+  const database = getDb();
+  if (!database) return null;
 
-  const channel = supabase
-    .channel(`room:${roomId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'rooms',
-        filter: `id=eq.${roomId}`,
-      },
-      (payload) => {
-        if (payload.new) {
-          callback(mapRowToRoom(payload.new));
-        }
-      },
-    )
-    .subscribe();
+  const unsubscribe = onValue(ref(database, `rooms/${roomId}`), (snapshot) => {
+    if (snapshot.exists()) {
+      callback(mapToRoom(roomId, snapshot.val()));
+    }
+  });
 
-  return channel;
-}
-
-// ─── Row mapper ───────────────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapRowToRoom(row: Record<string, any>): Room {
-  return {
-    id: row.id,
-    code: row.code,
-    hostId: row.host_id,
-    status: row.status,
-    gameState: row.game_state ?? null,
-    settings: row.settings,
-    players: row.players ?? [],
-  };
+  return { unsubscribe };
 }
