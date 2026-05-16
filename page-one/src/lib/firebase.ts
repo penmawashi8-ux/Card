@@ -99,14 +99,9 @@ export async function createRoom(
     })),
   };
 
-  try {
-    await set(newRoomRef, roomData);
-    await set(ref(database, `pageone/roomCodes/${code}`), newRoomRef.key);
-    return mapToRoom(newRoomRef.key!, roomData);
-  } catch (err) {
-    console.error('[firebase] createRoom error:', err);
-    return null;
-  }
+  await set(newRoomRef, roomData);
+  await set(ref(database, `pageone/roomCodes/${code}`), newRoomRef.key);
+  return mapToRoom(newRoomRef.key!, roomData);
 }
 
 // ─── joinRoom ─────────────────────────────────────────────────────────────────
@@ -119,29 +114,24 @@ export async function joinRoom(
   const database = getDb();
   if (!database) return null;
 
-  try {
-    const codeSnap = await get(ref(database, `pageone/roomCodes/${code.toUpperCase()}`));
-    if (!codeSnap.exists()) return null;
-    const roomId = codeSnap.val() as string;
+  const codeSnap = await get(ref(database, `pageone/roomCodes/${code.toUpperCase()}`));
+  if (!codeSnap.exists()) return null;
+  const roomId = codeSnap.val() as string;
 
-    const roomSnap = await get(ref(database, `pageone/rooms/${roomId}`));
-    if (!roomSnap.exists()) return null;
+  const roomSnap = await get(ref(database, `pageone/rooms/${roomId}`));
+  if (!roomSnap.exists()) return null;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = roomSnap.val() as Record<string, any>;
-    if (data.status !== 'waiting') return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = roomSnap.val() as Record<string, any>;
+  if (data.status !== 'waiting') return null;
 
-    const players = [
-      ...(data.players ?? []),
-      { id: playerId, name: playerName, isHost: false, isReady: false },
-    ];
+  const players = [
+    ...(data.players ?? []),
+    { id: playerId, name: playerName, isHost: false, isReady: false },
+  ];
 
-    await update(ref(database, `pageone/rooms/${roomId}`), { players });
-    return mapToRoom(roomId, { ...data, players });
-  } catch (err) {
-    console.error('[firebase] joinRoom error:', err);
-    return null;
-  }
+  await update(ref(database, `pageone/rooms/${roomId}`), { players });
+  return mapToRoom(roomId, { ...data, players });
 }
 
 // ─── getRoom ──────────────────────────────────────────────────────────────────
