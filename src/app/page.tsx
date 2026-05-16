@@ -77,6 +77,20 @@ export default function Home() {
             </div>
             <span className="ml-auto text-white/30 group-hover:text-white/60">›</span>
           </Link>
+
+          <Link
+            href="/buta"
+            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 hover:border-white/40 transition-all group"
+          >
+            <span className="text-3xl">🐷</span>
+            <div className="text-left">
+              <div className="text-white font-bold text-base group-hover:text-yellow-300 transition-colors">
+                ぶたのしっぽ
+              </div>
+              <div className="text-white/50 text-xs">別のトランプゲーム</div>
+            </div>
+            <span className="ml-auto text-white/30 group-hover:text-white/60">›</span>
+          </Link>
         </div>
 
         {/* Rules accordion */}
