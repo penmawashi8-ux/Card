@@ -16,7 +16,54 @@ import {
   type Database,
 } from 'firebase/database';
 
-import type { GameSettings, GameState, Room, PlayerSetupConfig } from '@/types/game';
+import type { GameSettings, GameState, Room, Player, Card, PlayerSetupConfig } from '@/types/game';
+
+// ─── Firebase array normalization ─────────────────────────────────────────────
+// Firebase Realtime Database strips null entries from arrays (treats them as
+// deletions), so [card, null, card] becomes {"0":card,"2":card}.  We must
+// reconstruct the original sparse array when reading back.
+
+function toArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (!value || typeof value !== 'object') return [];
+  const obj = value as Record<string, T>;
+  const indices = Object.keys(obj).map(Number).filter((n) => !isNaN(n) && n >= 0);
+  if (indices.length === 0) return [];
+  const max = Math.max(...indices);
+  const result = new Array<T>(max + 1);
+  for (const i of indices) result[i] = obj[i];
+  return result;
+}
+
+function normalizeCircleCards(value: unknown): (Card | null)[] {
+  if (Array.isArray(value)) return value as (Card | null)[];
+  if (!value || typeof value !== 'object') return new Array(52).fill(null);
+  const obj = value as Record<string, Card>;
+  const result: (Card | null)[] = new Array(52).fill(null);
+  for (const [key, val] of Object.entries(obj)) {
+    const i = Number(key);
+    if (!isNaN(i) && i >= 0 && i < 52) result[i] = val;
+  }
+  return result;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeGameState(gs: unknown): GameState | null {
+  if (!gs || typeof gs !== 'object') return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const state = gs as Record<string, any>;
+  const players = toArray<Player>(state.players).map((p) => ({
+    ...p,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    hand: toArray<Card>((p as Record<string, any>).hand),
+  }));
+  return {
+    ...(state as unknown as GameState),
+    players,
+    circleCards: normalizeCircleCards(state.circleCards),
+    centralPile: toArray<Card>(state.centralPile),
+  };
+}
 
 // ─── Firebase init ────────────────────────────────────────────────────────────
 
@@ -64,7 +111,7 @@ function mapToRoom(id: string, data: Record<string, any>): Room {
     code:       data.code,
     hostId:     data.hostId,
     status:     data.status,
-    gameState:  data.gameState ?? null,
+    gameState:  normalizeGameState(data.gameState),
     settings:   data.settings,
     players:    data.players ?? [],
     maxPlayers: data.maxPlayers ?? 4,
@@ -165,13 +212,15 @@ export async function getRoom(roomId: string): Promise<Room | null> {
 export async function updateGameState(
   roomId: string,
   gameState: GameState,
-): Promise<void> {
+): Promise<boolean> {
   const database = getDb();
-  if (!database) return;
+  if (!database) return false;
   try {
     await update(ref(database, `rooms/${roomId}`), { gameState, status: 'playing' });
+    return true;
   } catch (err) {
     console.error('[firebase] updateGameState error:', err);
+    return false;
   }
 }
 
