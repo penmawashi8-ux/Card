@@ -60,6 +60,13 @@ function generateRoomCode(): string {
 
 // ─── Data mapper ──────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toArray(v: any): any[] {
+  if (Array.isArray(v)) return v;
+  if (v == null) return [];
+  return Object.values(v);
+}
+
 // Firebase drops empty arrays (stores them as null). Restore them so game logic
 // never sees null where it expects an array.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,18 +74,17 @@ function normalizeGameState(gs: any): any {
   if (!gs) return gs;
   return {
     ...gs,
-    drawPile:    Array.isArray(gs.drawPile)    ? gs.drawPile    : Object.values(gs.drawPile    ?? {}),
-    discardPile: Array.isArray(gs.discardPile) ? gs.discardPile : Object.values(gs.discardPile ?? {}),
-    players: (gs.players ?? []).map((p: any) => ({
+    drawPile:    toArray(gs.drawPile),
+    discardPile: toArray(gs.discardPile),
+    roundScores: toArray(gs.roundScores),
+    players: toArray(gs.players).map((p: any) => ({
       ...p,
-      hand: Array.isArray(p.hand) ? p.hand : Object.values(p.hand ?? {}),
+      hand: toArray(p.hand),
     })),
     currentTrick: gs.currentTrick ? {
       ...gs.currentTrick,
-      cards: Array.isArray(gs.currentTrick.cards)
-        ? gs.currentTrick.cards
-        : Object.values(gs.currentTrick.cards ?? {}),
-    } : gs.currentTrick,
+      cards: toArray(gs.currentTrick.cards),
+    } : { leadSuit: null, declaredSuit: null, cards: [], winnerId: null },
   };
 }
 

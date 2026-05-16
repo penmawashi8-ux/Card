@@ -184,11 +184,15 @@ export function useGame(
     const timer = setTimeout(() => {
       const current = stateRef.current;
       if (current.phase !== 'trick_result') return;
-      const next = advanceAfterTrickResult(current);
-      if (next.phase === 'round_end' || next.phase === 'game_end') {
-        soundManager.playRoundEnd();
+      try {
+        const next = advanceAfterTrickResult(current);
+        if (next.phase === 'round_end' || next.phase === 'game_end') {
+          soundManager.playRoundEnd();
+        }
+        applyState(next);
+      } catch (err) {
+        console.error('[useGame] advanceAfterTrickResult error:', err);
       }
-      applyState(next);
     }, 2000);
 
     return () => clearTimeout(timer);
