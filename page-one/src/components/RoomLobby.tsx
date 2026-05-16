@@ -3,6 +3,17 @@
 import { useState } from 'react';
 import type { GameSettings } from '@/types/game';
 
+const RANDOM_NAMES = [
+  'さくら', 'ひろし', 'ゆき', 'けんじ', 'あいこ',
+  'たろう', 'はな', 'しょうた', 'みく', 'りょう',
+  'なな', 'こうき', 'ゆうな', 'けいた', 'あやか',
+  'そうた', 'ひなた', 'だいき', 'さやか', 'ゆうと',
+];
+
+function getRandomName() {
+  return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+}
+
 interface RoomLobbyProps {
   onCreateRoom: (playerName: string, settings: GameSettings) => void;
   onJoinRoom: (code: string, playerName: string) => void;
@@ -31,7 +42,7 @@ function Toggle({ value, onChange, label, description }: {
         className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${value ? 'bg-yellow-500' : 'bg-white/20'}`}
       >
         <span
-          className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+          className={`absolute left-0 top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
             value ? 'translate-x-6' : 'translate-x-1'
           }`}
         />
@@ -174,9 +185,8 @@ export function RoomLobby({ onCreateRoom, onJoinRoom, isFirebaseEnabled }: RoomL
 
           <button
             type="button"
-            onClick={() => createName.trim() && onCreateRoom(createName.trim(), createSettings)}
-            disabled={!createName.trim()}
-            className="w-full py-3 bg-green-600 hover:bg-green-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"
+            onClick={() => onCreateRoom(createName.trim() || getRandomName(), createSettings)}
+            className="w-full py-3 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-bold rounded-xl transition-all"
           >
             ルームを作成する
           </button>
@@ -211,8 +221,8 @@ export function RoomLobby({ onCreateRoom, onJoinRoom, isFirebaseEnabled }: RoomL
 
           <button
             type="button"
-            onClick={() => joinCode.length >= 4 && joinName.trim() && onJoinRoom(joinCode, joinName.trim())}
-            disabled={joinCode.length < 4 || !joinName.trim()}
+            onClick={() => joinCode.length >= 4 && onJoinRoom(joinCode, joinName.trim() || getRandomName())}
+            disabled={joinCode.length < 4}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"
           >
             ルームに参加する

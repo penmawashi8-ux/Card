@@ -66,6 +66,11 @@ const config: Config = {
           '0%':   { transform: 'scale(1)', opacity: '1' },
           '100%': { transform: 'scale(1.5)', opacity: '0' },
         },
+        'bounce-in': {
+          '0%':   { opacity: '0', transform: 'translateY(16px) scale(0.95)' },
+          '60%':  { opacity: '1', transform: 'translateY(-4px) scale(1.02)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
       },
       animation: {
         'card-flip':    'card-flip 0.4s ease-in-out',
@@ -74,6 +79,7 @@ const config: Config = {
         'pile-glow':    'pile-glow 1s ease-in-out infinite',
         'float-in':     'float-in 0.3s ease-out',
         'pulse-ring':   'pulse-ring 1s ease-out infinite',
+        'bounce-in':    'bounce-in 0.4s ease-out',
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],

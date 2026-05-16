@@ -266,11 +266,13 @@ export function drawOneCard(state: GameState): { newState: GameState; drawnCard:
   drawPile = drawPile.slice(1);
 
   const playerIndex = state.currentPlayerIndex;
-  const newPlayers = state.players.map((p, i) =>
-    i === playerIndex
-      ? { ...p, hand: [...p.hand, drawnCard] }
-      : p
-  );
+  const newPlayers = state.players.map((p, i) => {
+    if (i !== playerIndex) return p;
+    const newHand = [...p.hand, drawnCard];
+    // ページワン宣言済みでも手札が2枚以上になったらリセット（再宣言が必要）
+    const pageOneDeclared = newHand.length <= 1 ? p.pageOneDeclared : false;
+    return { ...p, hand: newHand, pageOneDeclared };
+  });
 
   return {
     newState: {

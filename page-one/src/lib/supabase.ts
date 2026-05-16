@@ -72,7 +72,7 @@ export async function createRoom(
   if (!database) return null;
 
   const code = generateRoomCode();
-  const newRoomRef = push(ref(database, 'rooms'));
+  const newRoomRef = push(ref(database, 'pageone/rooms'));
 
   const roomData = {
     code,
@@ -90,7 +90,7 @@ export async function createRoom(
 
   try {
     await set(newRoomRef, roomData);
-    await set(ref(database, `roomCodes/${code}`), newRoomRef.key);
+    await set(ref(database, `pageone/roomCodes/${code}`), newRoomRef.key);
     return mapToRoom(newRoomRef.key!, roomData);
   } catch (err) {
     console.error('[firebase] createRoom error:', err);
@@ -107,7 +107,7 @@ export async function joinRoom(
   if (!database) return null;
 
   try {
-    const codeSnap = await get(ref(database, `roomCodes/${code.toUpperCase()}`));
+    const codeSnap = await get(ref(database, `pageone/roomCodes/${code.toUpperCase()}`));
     if (!codeSnap.exists()) return null;
     const roomId = codeSnap.val() as string;
 

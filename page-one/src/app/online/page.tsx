@@ -26,7 +26,8 @@ export default function OnlinePage() {
       router.push(`/online/${room.id}`);
     } catch (err) {
       console.error('[OnlinePage] createRoom error:', err);
-      setErrorMsg('ルームの作成中にエラーが発生しました。');
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMsg(`ルームの作成中にエラーが発生しました。\n${msg}`);
     } finally {
       setLoading(false);
     }
@@ -45,7 +46,8 @@ export default function OnlinePage() {
       router.push(`/online/${room.id}`);
     } catch (err) {
       console.error('[OnlinePage] joinRoom error:', err);
-      setErrorMsg('ルームへの参加中にエラーが発生しました。');
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMsg(`ルームへの参加中にエラーが発生しました。\n${msg}`);
     } finally {
       setLoading(false);
     }
@@ -68,7 +70,7 @@ export default function OnlinePage() {
         </div>
 
         {errorMsg && (
-          <div className="mb-4 bg-red-900/60 border border-red-500/40 rounded-xl px-4 py-3 text-red-300 text-sm text-center">
+          <div className="mb-4 bg-red-900/60 border border-red-500/40 rounded-xl px-4 py-3 text-red-300 text-sm text-center whitespace-pre-wrap break-all">
             {errorMsg}
           </div>
         )}

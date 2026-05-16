@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { UpdateBanner } from '@/components/UpdateBanner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,6 +21,7 @@ export default function RootLayout({
     <html lang="ja" className="h-full">
       <body className={`${inter.className} h-full antialiased`}>
         {children}
+        <UpdateBanner />
       </body>
     </html>
   );

@@ -1,0 +1,65 @@
+name: Sync Vercel env vars (buta → page-one)
+
+on:
+  workflow_dispatch:   # GitHub アプリから手動実行できる
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy env vars from buta to page-one
+        env:
+          VERCEL_TOKEN:            ${{ secrets.VERCEL_TOKEN }}
+          BUTA_PROJECT_ID:         ${{ secrets.VERCEL_BUTA_PROJECT_ID }}
+          PAGE_ONE_PROJECT_ID:     ${{ secrets.VERCEL_PAGE_ONE_PROJECT_ID }}
+        run: |
+          # buta の環境変数を取得
+          ENV_LIST=$(curl -sf \
+            "https://api.vercel.com/v9/projects/$BUTA_PROJECT_ID/env" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            | jq -c '.envs[]')
+
+          # page-one の既存の環境変数IDを取得して削除（重複防止）
+          EXISTING=$(curl -sf \
+            "https://api.vercel.com/v9/projects/$PAGE_ONE_PROJECT_ID/env" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            | jq -r '.envs[] | select(.key | startswith("NEXT_PUBLIC_FIREBASE_")) | .id')
+
+          for id in $EXISTING; do
+            curl -sf -X DELETE \
+              "https://api.vercel.com/v9/projects/$PAGE_ONE_PROJECT_ID/env/$id" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" > /dev/null
+          done
+
+          # Firebase 環境変数を page-one にコピー
+          echo "$ENV_LIST" | while IFS= read -r env; do
+            KEY=$(echo "$env" | jq -r '.key')
+            if [[ "$KEY" != NEXT_PUBLIC_FIREBASE_* ]]; then
+              continue
+            fi
+
+            TYPE=$(echo "$env"  | jq -r '.type')
+            TARGET=$(echo "$env" | jq -c '.target')
+
+            # 暗号化された値は /value エンドポイントで取得
+            if [ "$TYPE" = "encrypted" ]; then
+              ENV_ID=$(echo "$env" | jq -r '.id')
+              VALUE=$(curl -sf \
+                "https://api.vercel.com/v9/projects/$BUTA_PROJECT_ID/env/$ENV_ID" \
+                -H "Authorization: Bearer $VERCEL_TOKEN" \
+                | jq -r '.value')
+            else
+              VALUE=$(echo "$env" | jq -r '.value')
+            fi
+
+            curl -sf -X POST \
+              "https://api.vercel.com/v9/projects/$PAGE_ONE_PROJECT_ID/env" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"key\":\"$KEY\",\"value\":$(echo "$VALUE" | jq -Rs .),\"type\":\"encrypted\",\"target\":$TARGET}" \
+              > /dev/null
+
+            echo "✅ $KEY をコピーしました"
+          done
+
+          echo "🎉 同期完了"
