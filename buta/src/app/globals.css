@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 15, 76, 42;
+  --background-end-rgb: 10, 50, 28;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  min-height: 100vh;
+}
+
+/* ─── Card styles ──────────────────────────────────────────────────────────── */
+
+.card-face {
+  @apply relative bg-amber-50 border-2 border-yellow-600 rounded-lg shadow-lg
+         flex flex-col items-center justify-center select-none cursor-pointer
+         transition-transform duration-150;
+}
+
+.card-face:hover {
+  @apply -translate-y-1 shadow-xl;
+}
+
+.card-face.red-suit {
+  @apply text-red-600;
+}
+
+.card-face.black-suit {
+  @apply text-stone-900;
+}
+
+.card-back {
+  @apply relative rounded-lg shadow-lg border-2 border-blue-900
+         bg-blue-800 select-none cursor-pointer
+         transition-transform duration-150;
+  background-image: repeating-linear-gradient(
+    45deg,
+    #1e3a8a 0px,
+    #1e3a8a 8px,
+    #1d4ed8 8px,
+    #1d4ed8 16px
+  );
+}
+
+.card-back:hover {
+  @apply -translate-y-1 shadow-xl;
+}
+
+/* ─── Felt table ───────────────────────────────────────────────────────────── */
+
+.felt-table {
+  background: radial-gradient(ellipse at center, #1a6b3c 0%, #0f4c2a 100%);
+  @apply relative overflow-hidden;
+}
+
+/* ─── Scrollbar ────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Animations ───────────────────────────────────────────────────────────── */
+
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-20deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.animate-card-deal {
+  animation: card-deal 0.3s ease-out forwards;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.4s ease-out forwards;
+}
+
+/* ─── Glass panel ──────────────────────────────────────────────────────────── */
+
+.glass {
+  @apply bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl;
+}
+
+/* ─── Button styles ────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  @apply px-6 py-3 bg-yellow-500 hover:bg-yellow-400 text-stone-900
+         font-bold rounded-lg shadow-lg transition-all duration-150
+         active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply px-6 py-3 bg-white/20 hover:bg-white/30 text-white
+         font-semibold rounded-lg border border-white/30 shadow
+         transition-all duration-150 active:scale-95
+         disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-danger {
+  @apply px-6 py-3 bg-red-600 hover:bg-red-500 text-white
+         font-bold rounded-lg shadow-lg transition-all duration-150
+         active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+}
