@@ -45,7 +45,7 @@ function Toggle({ value, onChange, label, description }: {
         className={`relative w-12 h-6 rounded-full transition-colors ${value ? 'bg-yellow-500' : 'bg-white/20'}`}
       >
         <span
-          className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+          className={`absolute left-0 top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
             value ? 'translate-x-7' : 'translate-x-1'
           }`}
         />
