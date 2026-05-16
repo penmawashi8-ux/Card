@@ -9,7 +9,7 @@ import { isSupabaseEnabled, createRoom, joinRoom } from '@/lib/supabase';
 
 export default function OnlinePage() {
   const router = useRouter();
-  const hostId = useId();
+  const generatedId = useId();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -17,6 +17,8 @@ export default function OnlinePage() {
     setErrorMsg(null);
     setLoading(true);
     try {
+      const hostId = generatedId;
+      sessionStorage.setItem('online_player_id', hostId);
       const playerConfig = [{ name: playerName, type: 'human' as const, cpuDifficulty: 'normal' as const }];
       const room = await createRoom(hostId, settings, playerConfig, maxPlayers);
       if (!room) {
@@ -37,6 +39,7 @@ export default function OnlinePage() {
     setLoading(true);
     try {
       const playerId = `player-${Math.random().toString(36).slice(2, 9)}`;
+      sessionStorage.setItem('online_player_id', playerId);
       const room = await joinRoom(code, playerId, playerName);
       if (!room) {
         setErrorMsg('ルームが見つかりません。コードを確認してください。');

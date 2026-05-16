@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useId } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import type { GameState, Room, GameSettings, PlayerSetupConfig } from '@/types/game';
 import { initializeGame } from '@/lib/gameLogic';
@@ -26,7 +26,13 @@ export default function OnlineRoomPage() {
   const [room, setRoom] = useState<Room | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const playerId = useId();
+  const playerIdRef = useRef<string>('');
+  if (!playerIdRef.current) {
+    playerIdRef.current =
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('online_player_id')) ||
+      `player-${Math.random().toString(36).slice(2, 9)}`;
+  }
+  const playerId = playerIdRef.current;
 
   // ── Fetch initial room data ─────────────────────────────────────────────
   useEffect(() => {
