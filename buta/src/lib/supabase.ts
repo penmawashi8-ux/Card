@@ -216,16 +216,16 @@ export async function updateGameState(
   const database = getDb();
   if (!database) return { ok: false, errorCode: 'DB_NOT_CONFIGURED' };
   try {
-    // Use set() at child paths instead of update() to avoid issues with
-    // Firebase's nested-object merge semantics and null stripping.
-    await set(ref(database, `rooms/${roomId}/gameState`), gameState);
+    // Firebase SDK cannot serialize `undefined` values — strip them first.
+    const cleanState = JSON.parse(JSON.stringify(gameState)) as GameState;
+    await set(ref(database, `rooms/${roomId}/gameState`), cleanState);
     await set(ref(database, `rooms/${roomId}/status`), 'playing');
     return { ok: true };
   } catch (err) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const code: string = (err as any)?.code ?? 'UNKNOWN';
-    console.error('[firebase] updateGameState error:', err);
-    return { ok: false, errorCode: code };
+    const code = (err as { code?: string })?.code;
+    const message = (err as Error)?.message ?? String(err);
+    console.error('[firebase] updateGameState error:', code, message, err);
+    return { ok: false, errorCode: code ?? message.slice(0, 80) };
   }
 }
 
