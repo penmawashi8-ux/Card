@@ -22,22 +22,51 @@ function FlipCard({ card }: { card: Card }) {
     return () => clearTimeout(t);
   }, []);
   return (
-    <div style={{ perspective: '500px', width: '2.5rem', height: '3.5rem' }}>
-      <div
-        style={{
-          transformStyle: 'preserve-3d',
-          transition: 'transform 0.34s ease-in-out',
-          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-          position: 'relative',
-          width: '100%',
-          height: '100%',
-        }}
-      >
-        <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}>
-          <CardBack size="sm" />
-        </div>
-        <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}>
-          <CardFace card={card} size="sm" />
+    // Outer wrapper: scale up + glow so the flipping card stands out
+    <div
+      className="relative z-20"
+      style={{
+        width: '2.5rem',
+        height: '3.5rem',
+        transform: 'scale(1.22) translateY(-4px)',
+        filter: 'drop-shadow(0 0 8px rgba(250,204,21,0.9))',
+      }}
+    >
+      {/* Perspective parent */}
+      <div style={{ perspective: '500px', width: '100%', height: '100%' }}>
+        {/* Rotating container */}
+        <div
+          style={{
+            transformStyle: 'preserve-3d',
+            WebkitTransformStyle: 'preserve-3d' as React.CSSProperties['transformStyle'],
+            transition: 'transform 0.36s ease-in-out',
+            transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+          }}
+        >
+          <div
+            style={{
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden' as React.CSSProperties['backfaceVisibility'],
+              position: 'absolute',
+              inset: 0,
+            }}
+          >
+            <CardBack size="sm" />
+          </div>
+          <div
+            style={{
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden' as React.CSSProperties['backfaceVisibility'],
+              transform: 'rotateY(180deg)',
+              position: 'absolute',
+              inset: 0,
+            }}
+          >
+            <CardFace card={card} size="sm" />
+          </div>
         </div>
       </div>
     </div>

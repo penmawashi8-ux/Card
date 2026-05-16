@@ -136,36 +136,74 @@ export function useGame(
           return;
         }
 
-        // Play post-action sounds
-        if (result.isPenalty) {
-          soundManager.playPenalty();
-        } else {
-          soundManager.playCardPlace();
-        }
-
-        // Handle phase transition sounds
-        const newPhase = result.newState.phase;
-        if (newPhase === 'round_end') {
-          setTimeout(() => soundManager.playRoundEnd(), 300);
-        } else if (newPhase === 'game_end') {
-          setTimeout(() => soundManager.playWin(), 300);
-        }
-
-        setState(result.newState);
         setFlippingCard(null);
 
-        // Sync to Firebase if online game
-        if (roomId) {
-          updateGameState(roomId, result.newState).then((res) => {
-            if (!res.ok) console.error('[useGame] updateGameState failed:', res.errorCode);
-          });
-        }
+        if (result.isPenalty) {
+          soundManager.playPenalty();
 
-        // Clear animation state after landing animation finishes
-        setTimeout(() => {
-          animatingRef.current = false;
-          setIsAnimating(false);
-        }, 600);
+          // Phase 1: show the played card landing on the pile with penalty glow,
+          // but don't distribute cards to hand yet so the player can see what happened.
+          const intermediateCircleCards =
+            source === 'circle' && circleIndex !== undefined
+              ? currentState.circleCards.map((c, i) => (i === circleIndex ? null : c))
+              : currentState.circleCards;
+          const intermediatePlayers = currentState.players.map((p, i) => {
+            if (source === 'hand' && i === currentState.currentPlayerIndex && handCardId) {
+              return { ...p, hand: p.hand.filter((c) => c.id !== handCardId) };
+            }
+            return p;
+          });
+          const intermediatePile = flipInfo?.card
+            ? [...currentState.centralPile, flipInfo.card]
+            : currentState.centralPile;
+
+          setState({
+            ...currentState,
+            circleCards: intermediateCircleCards,
+            centralPile: intermediatePile,
+            players: intermediatePlayers,
+            lastPenaltyPlayerIndex: result.newState.lastPenaltyPlayerIndex,
+          });
+
+          // Phase 2: after penalty display window, distribute cards to hand
+          setTimeout(() => {
+            const newPhase = result.newState.phase;
+            if (newPhase === 'round_end') soundManager.playRoundEnd();
+            else if (newPhase === 'game_end') soundManager.playWin();
+
+            setState(result.newState);
+
+            if (roomId) {
+              updateGameState(roomId, result.newState).then((res) => {
+                if (!res.ok) console.error('[useGame] updateGameState failed:', res.errorCode);
+              });
+            }
+
+            setTimeout(() => {
+              animatingRef.current = false;
+              setIsAnimating(false);
+            }, 600);
+          }, 1100);
+        } else {
+          soundManager.playCardPlace();
+
+          const newPhase = result.newState.phase;
+          if (newPhase === 'round_end') setTimeout(() => soundManager.playRoundEnd(), 300);
+          else if (newPhase === 'game_end') setTimeout(() => soundManager.playWin(), 300);
+
+          setState(result.newState);
+
+          if (roomId) {
+            updateGameState(roomId, result.newState).then((res) => {
+              if (!res.ok) console.error('[useGame] updateGameState failed:', res.errorCode);
+            });
+          }
+
+          setTimeout(() => {
+            animatingRef.current = false;
+            setIsAnimating(false);
+          }, 600);
+        }
       }, flipDelay);
     },
     [roomId],
