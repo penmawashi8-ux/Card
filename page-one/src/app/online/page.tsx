@@ -23,6 +23,7 @@ export default function OnlinePage() {
         setErrorMsg('ルームの作成に失敗しました。もう一度お試しください。');
         return;
       }
+      sessionStorage.setItem('pageone_my_player_id', hostId);
       router.push(`/online/${room.id}`);
     } catch (err) {
       console.error('[OnlinePage] createRoom error:', err);
@@ -43,6 +44,7 @@ export default function OnlinePage() {
         setErrorMsg('ルームが見つかりません。コードを確認してください。');
         return;
       }
+      sessionStorage.setItem('pageone_my_player_id', playerId);
       router.push(`/online/${room.id}`);
     } catch (err) {
       console.error('[OnlinePage] joinRoom error:', err);
