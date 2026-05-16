@@ -151,6 +151,7 @@ function ActiveGame({ initialState, playerId, onReturnToMenu }: ActiveGameProps)
       {state.phase === 'game_end' && (
         <GameEndScreen
           state={state}
+          humanPlayerIndex={humanPlayerIndex}
           onPlayAgain={resetGame}
           onReturnToMenu={onReturnToMenu}
         />

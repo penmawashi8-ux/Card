@@ -117,6 +117,10 @@ export default function CircleBoard({
           flippingCard?.source === 'circle' && flippingCard.circleIndex === idx;
         const canClick = isHumanTurn && hasCard && !isAnimating && !isFlipping;
 
+        // Pulse animation runs whenever it's the human's turn with a card present,
+        // independent of isAnimating — prevents animation restart on every state update.
+        const showPulse = isHumanTurn && hasCard && !isFlipping;
+
         return (
           <div
             key={idx}
@@ -126,16 +130,27 @@ export default function CircleBoard({
             {isFlipping ? (
               <FlipCard card={flippingCard!.card} />
             ) : hasCard ? (
-              <CardBack
-                size="sm"
-                onClick={canClick ? () => onCardClick(idx) : undefined}
-                disabled={!canClick}
-                className={canClick ? 'animate-pulse-subtle' : ''}
-              />
-            ) : (
-              /* Empty slot */
+              /* Expanded touch target wrapper (p-3 = +12px each side) */
               <div
-                className="w-10 h-14 rounded-lg border border-dashed border-white/20 bg-black/10"
+                className={[
+                  'p-3 -m-3 rounded-xl',
+                  canClick ? 'cursor-pointer' : 'cursor-default',
+                ].join(' ')}
+                onClick={canClick ? () => onCardClick(idx) : undefined}
+              >
+                <CardBack
+                  size="sm"
+                  disabled={!canClick}
+                  className={[
+                    'pointer-events-none',
+                    showPulse ? 'animate-pulse-subtle' : '',
+                  ].join(' ')}
+                />
+              </div>
+            ) : (
+              /* Empty slot – pointer-events-none so it never blocks card taps */
+              <div
+                className="w-10 h-14 rounded-lg border border-dashed border-white/20 bg-black/10 pointer-events-none"
                 aria-label={`Empty slot ${idx}`}
               />
             )}

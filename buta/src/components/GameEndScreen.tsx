@@ -6,32 +6,35 @@ import { getStandings } from '@/lib/gameLogic';
 
 interface GameEndScreenProps {
   state: GameState;
+  humanPlayerIndex: number;
   onPlayAgain: () => void;
   onReturnToMenu: () => void;
 }
 
 export default function GameEndScreen({
   state,
+  humanPlayerIndex,
   onPlayAgain,
   onReturnToMenu,
 }: GameEndScreenProps) {
   const standings = getStandings(state.players);
   const winner = standings[0];
-  const isWinnerHuman = winner.type === 'human';
+  const viewingPlayer = state.players[humanPlayerIndex];
+  const isViewerWinner = viewingPlayer?.id === winner.id;
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
       <div className="glass max-w-lg w-full p-8 text-center animate-bounce-in">
         {/* Trophy / emoji */}
         <div className="text-6xl mb-4">
-          {isWinnerHuman ? '🏆' : '🐷'}
+          {isViewerWinner ? '🏆' : '🐷'}
         </div>
 
         <h2 className="text-3xl font-bold text-yellow-300 mb-2">
-          {isWinnerHuman ? 'You Win!' : `${winner.name} Wins!`}
+          {isViewerWinner ? 'You Win!' : `${winner.name} Wins!`}
         </h2>
         <p className="text-white/60 mb-2">
-          {isWinnerHuman
+          {isViewerWinner
             ? 'Congratulations! You have the fewest penalty cards.'
             : `${winner.name} squealed to victory!`}
         </p>
