@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { GameSettings } from '@/types/game';
 
 interface RoomLobbyProps {
-  onCreateRoom: (playerName: string, settings: GameSettings) => void;
+  onCreateRoom: (playerName: string, settings: GameSettings, maxPlayers: number) => void;
   onJoinRoom: (code: string, playerName: string) => void;
   isSupabaseEnabled: boolean;
 }
@@ -20,6 +20,7 @@ export function RoomLobby({
 
   // Create room form state
   const [createName, setCreateName] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState(4);
   const [createSettings, setCreateSettings] = useState<GameSettings>({
     rounds: 3,
     penaltyOnSameNumber: false,
@@ -94,6 +95,31 @@ export function RoomLobby({
             />
           </div>
 
+          {/* Max players */}
+          <div>
+            <label className="block text-white/60 text-xs mb-1.5">
+              プレイヤー数（{maxPlayers}人）
+              <span className="text-white/40 ml-1">— 足りない枠はCPUが埋めます</span>
+            </label>
+            <div className="flex gap-2">
+              {[3, 4, 5, 6].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setMaxPlayers(n)}
+                  className={[
+                    'flex-1 py-2 rounded-lg font-bold text-sm transition-all',
+                    maxPlayers === n
+                      ? 'bg-yellow-500 text-stone-900 shadow-lg shadow-yellow-500/30'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20',
+                  ].join(' ')}
+                >
+                  {n}人
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Rounds */}
           <div>
             <label className="block text-white/60 text-xs mb-1.5">ラウンド数</label>
@@ -151,7 +177,7 @@ export function RoomLobby({
           <button
             type="button"
             onClick={() =>
-              createName.trim() && onCreateRoom(createName.trim(), createSettings)
+              createName.trim() && onCreateRoom(createName.trim(), createSettings, maxPlayers)
             }
             disabled={!createName.trim()}
             className="w-full py-3 bg-green-600 hover:bg-green-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"

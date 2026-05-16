@@ -104,13 +104,19 @@ export default function OnlineRoomPage() {
         room={room}
         playerId={playerId}
         onStartGame={async () => {
-          // Host starts the game: initialise state and persist it
-          const playerConfigs: PlayerSetupConfig[] = room.players.map((rp) => ({
+          // Human players first, then fill remaining slots with CPUs
+          const humanConfigs: PlayerSetupConfig[] = room.players.map((rp) => ({
             name: rp.name,
             type: 'human',
             cpuDifficulty: 'normal',
           }));
-          const state = initializeGame(room.settings, playerConfigs);
+          const cpuCount = Math.max(0, room.maxPlayers - room.players.length);
+          const cpuConfigs: PlayerSetupConfig[] = Array.from({ length: cpuCount }, (_, i) => ({
+            name: `CPU ${i + 1}`,
+            type: 'cpu',
+            cpuDifficulty: 'normal',
+          }));
+          const state = initializeGame(room.settings, [...humanConfigs, ...cpuConfigs]);
           await updateGameState(room.id, state);
         }}
         onLeave={() => router.push('/online')}
@@ -160,11 +166,11 @@ function WaitingRoom({ room, playerId, onStartGame, onLeave }: WaitingRoomProps)
         </div>
 
         {/* Players list */}
-        <div className="mb-6">
+        <div className="mb-4">
           <p className="text-white/60 text-xs uppercase tracking-wider mb-2">
-            参加者 ({room.players.length}人)
+            参加者 {room.players.length} / {room.maxPlayers}人
           </p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {room.players.map((p) => (
               <div
                 key={p.id}
@@ -175,11 +181,16 @@ function WaitingRoom({ room, playerId, onStartGame, onLeave }: WaitingRoomProps)
                 {p.id === playerId && (
                   <span className="text-xs text-green-400">あなた</span>
                 )}
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    p.isReady ? 'bg-green-400' : 'bg-gray-500'
-                  }`}
-                />
+              </div>
+            ))}
+            {/* CPU placeholder slots */}
+            {Array.from({ length: room.maxPlayers - room.players.length }).map((_, i) => (
+              <div
+                key={`cpu-${i}`}
+                className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 opacity-50 border border-dashed border-white/20"
+              >
+                <span className="text-sm">🤖</span>
+                <span className="text-white/40 text-sm flex-1">CPU {i + 1}（自動補完）</span>
               </div>
             ))}
           </div>

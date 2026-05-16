@@ -61,12 +61,13 @@ function generateRoomCode(): string {
 function mapToRoom(id: string, data: Record<string, any>): Room {
   return {
     id,
-    code:      data.code,
-    hostId:    data.hostId,
-    status:    data.status,
-    gameState: data.gameState ?? null,
-    settings:  data.settings,
-    players:   data.players ?? [],
+    code:       data.code,
+    hostId:     data.hostId,
+    status:     data.status,
+    gameState:  data.gameState ?? null,
+    settings:   data.settings,
+    players:    data.players ?? [],
+    maxPlayers: data.maxPlayers ?? 4,
   };
 }
 
@@ -76,6 +77,7 @@ export async function createRoom(
   hostId: string,
   settings: GameSettings,
   playerConfigs: PlayerSetupConfig[],
+  maxPlayers: number = 4,
 ): Promise<Room | null> {
   const database = getDb();
   if (!database) return null;
@@ -89,6 +91,7 @@ export async function createRoom(
     status: 'waiting',
     gameState: null,
     settings,
+    maxPlayers,
     players: playerConfigs.map((cfg, i) => ({
       id:      i === 0 ? hostId : `player-${i}`,
       name:    cfg.name,

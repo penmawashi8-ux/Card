@@ -78,6 +78,7 @@ export interface Room {
   gameState: GameState | null;
   settings: GameSettings;
   players: RoomPlayer[];
+  maxPlayers: number;    // total slots (humans fill first, CPUs fill the rest)
 }
 
 export interface RoomPlayer {
