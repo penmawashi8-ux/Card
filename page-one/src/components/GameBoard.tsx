@@ -1,11 +1,11 @@
 'use client';
 
 import type { GameState, Suit } from '@/types/game';
-import PlayerArea from './PlayerArea';
+import { canPlayCard } from '@/lib/gameLogic';
+import { CardComponent } from './CardComponent';
 import TrickArea from './TrickArea';
 import DrawPile from './DrawPile';
 import SuitPicker from './SuitPicker';
-import PageOneButton from './PageOneButton';
 import SoundToggle from './SoundToggle';
 
 interface GameBoardProps {
@@ -18,189 +18,181 @@ interface GameBoardProps {
   myPlayerId?: string;
 }
 
-/** Map player position (seat index relative to human) to UI position */
-function getPosition(
-  seatIndex: number,
-  humanSeat: number,
-  totalPlayers: number
-): 'bottom' | 'top' | 'left' | 'right' {
-  const relative = (seatIndex - humanSeat + totalPlayers) % totalPlayers;
-  if (relative === 0) return 'bottom';
-  if (totalPlayers === 3) {
-    return relative === 1 ? 'left' : 'right';
-  }
-  // 4 players
-  if (relative === 1) return 'left';
-  if (relative === 2) return 'top';
-  return 'right';
-}
-
 export default function GameBoard({
   state,
   humanPlayerIndex,
   onPlayCard,
   onDeclareJokerSuit,
   onDeclarePageOne,
-  isOnline = false,
-  myPlayerId,
 }: GameBoardProps) {
   const currentPlayer = state.players[state.currentPlayerIndex];
-  const isHumanTurn = currentPlayer.type === 'human' &&
+  const human = state.players[humanPlayerIndex];
+  const isHumanTurn =
+    currentPlayer.type === 'human' &&
     state.currentPlayerIndex === humanPlayerIndex;
-  const showSuitPicker = state.phase === 'joker_suit_declare' && isHumanTurn;
 
-  // For online: show page one button for the human player when it's page_one_pending
+  const canPlay =
+    isHumanTurn &&
+    (state.phase === 'leading' || state.phase === 'following');
+  const isLeading = state.phase === 'leading';
+
   const showPageOneButton =
     state.phase === 'page_one_pending' &&
     state.currentPlayerIndex === humanPlayerIndex;
 
-  // Sort players: human at bottom, others around table
-  const orderedSeats = state.players.map((_, i) => i);
+  const showSuitPicker =
+    state.phase === 'joker_suit_declare' && isHumanTurn;
+
+  const opponents = state.players
+    .map((p, i) => ({ player: p, idx: i }))
+    .filter(({ idx }) => idx !== humanPlayerIndex);
 
   return (
-    <div className="flex flex-col h-full min-h-screen felt-table">
-      {/* ── Top bar ───────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 py-2 bg-black/20">
-        <div className="text-white/70 text-sm">
-          ラウンド{' '}
-          <span className="font-bold text-yellow-300">
-            {state.round}
-          </span>
-          {' '}/{' '}{state.totalRounds}
-        </div>
+    <div className="h-dvh flex flex-col felt-table overflow-hidden select-none">
 
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              isHumanTurn ? 'bg-yellow-400 animate-pulse' : 'bg-white/30'
-            }`}
-          />
-          <span className="text-white/70 text-sm font-medium">
-            {currentPlayer.name} のターン
-          </span>
-          {currentPlayer.type === 'cpu' && (
-            <span className="text-xs text-white/40 animate-pulse">考え中…</span>
-          )}
-          {state.phase === 'auto_drawing' && (
-            <span className="text-xs text-orange-300 animate-pulse">引いています…</span>
-          )}
-        </div>
-
+      {/* ── Top bar ─────────────────────────────────────────────── */}
+      <div className="shrink-0 flex items-center justify-between px-3 py-1.5 bg-black/30 gap-2">
+        <span className="text-white/60 text-xs font-mono shrink-0">
+          R<span className="text-yellow-300 font-bold">{state.round}</span>/{state.totalRounds}
+        </span>
+        <span className={`text-xs font-medium text-center truncate flex-1 ${isHumanTurn ? 'text-yellow-300' : 'text-white/70'}`}>
+          {state.message}
+        </span>
         <SoundToggle />
       </div>
 
-      {/* ── Message banner ─────────────────────────────────────────── */}
-      {state.message && (
-        <div className="px-4 py-1.5 bg-black/10 text-center">
-          <span className="text-white/70 text-sm">{state.message}</span>
-        </div>
-      )}
-
-      {/* ── Main table area ────────────────────────────────────────── */}
-      <div className="flex-1 relative flex flex-col items-center justify-center p-4 gap-4">
-
-        {/* Top player */}
-        {state.players.length >= 3 && (() => {
-          const topIdx = orderedSeats.find(i => getPosition(i, humanPlayerIndex, state.players.length) === 'top');
-          if (topIdx === undefined) return null;
-          const p = state.players[topIdx];
+      {/* ── Opponents ───────────────────────────────────────────── */}
+      <div className="shrink-0 flex justify-around items-center px-2 py-1.5 gap-1 bg-black/15">
+        {opponents.map(({ player: p, idx }) => {
+          const isCurrent = state.currentPlayerIndex === idx;
           return (
-            <div className="w-full flex justify-center">
-              <PlayerArea
-                player={p}
-                isCurrentPlayer={state.currentPlayerIndex === topIdx}
-                isHumanControlled={false}
-                position="top"
-                currentTrick={state.currentTrick}
-                phase={state.phase}
-                seatIndex={topIdx}
-              />
+            <div
+              key={idx}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                isCurrent
+                  ? 'bg-yellow-400 text-stone-900 shadow-md shadow-yellow-400/40'
+                  : 'glass text-white/80'
+              }`}
+            >
+              {isCurrent && (
+                <span className="w-1.5 h-1.5 rounded-full bg-stone-900 animate-pulse shrink-0" />
+              )}
+              <span className="truncate max-w-[5rem]">{p.name}</span>
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] shrink-0 ${
+                  isCurrent ? 'bg-stone-900/20' : 'bg-white/15'
+                }`}
+              >
+                {p.hand.length}枚
+              </span>
+              {p.pageOneDeclared && (
+                <span className="bg-orange-500 text-white px-1 rounded text-[10px] font-bold shrink-0">
+                  P1
+                </span>
+              )}
+              <span className="text-[10px] opacity-60 shrink-0">
+                {p.score > 0 ? '+' : ''}{p.score}
+              </span>
             </div>
           );
-        })()}
+        })}
+      </div>
 
-        {/* Middle row: left, center trick, right */}
-        <div className="w-full flex items-center justify-between gap-2 max-w-2xl">
-          {/* Left player */}
-          {(() => {
-            const leftIdx = orderedSeats.find(i => getPosition(i, humanPlayerIndex, state.players.length) === 'left');
-            if (leftIdx === undefined) return <div className="w-16" />;
-            const p = state.players[leftIdx];
-            return (
-              <PlayerArea
-                player={p}
-                isCurrentPlayer={state.currentPlayerIndex === leftIdx}
-                isHumanControlled={false}
-                position="left"
-                currentTrick={state.currentTrick}
-                phase={state.phase}
-                seatIndex={leftIdx}
-              />
-            );
-          })()}
+      {/* ── Center: trick + draw pile ────────────────────────────── */}
+      <div className="flex-1 flex items-center justify-center gap-4 px-3 py-2 min-h-0">
+        <TrickArea
+          trick={state.currentTrick}
+          players={state.players}
+          phase={state.phase}
+        />
+        <DrawPile
+          drawCount={state.drawPile.length}
+          discardCount={state.discardPile.length}
+          isDrawing={state.phase === 'auto_drawing'}
+        />
+      </div>
 
-          {/* Center: trick area */}
-          <div className="flex-1 flex flex-col items-center gap-3">
-            <TrickArea
-              trick={state.currentTrick}
-              players={state.players}
-              phase={state.phase}
-            />
+      {/* ── Human player ─────────────────────────────────────────── */}
+      <div className="shrink-0 bg-black/25 px-3 pt-2 pb-3">
+        {/* Info row */}
+        <div className="flex items-center justify-between mb-1.5">
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-semibold transition-all ${
+              isHumanTurn
+                ? 'bg-yellow-400 text-stone-900 shadow-md shadow-yellow-400/30'
+                : 'glass text-white/80'
+            }`}
+          >
+            {isHumanTurn && (
+              <span className="w-1.5 h-1.5 rounded-full bg-stone-900 animate-pulse" />
+            )}
+            <span>{human.name}</span>
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded-full ${
+                isHumanTurn ? 'bg-stone-900/20' : 'bg-white/10'
+              }`}
+            >
+              {human.hand.length}枚
+            </span>
+            {human.pageOneDeclared && (
+              <span className="bg-orange-500 text-white px-1 py-0.5 rounded text-xs font-bold">
+                P1
+              </span>
+            )}
           </div>
-
-          {/* Right: draw pile + right player */}
-          <div className="flex flex-col items-end gap-3">
-            {(() => {
-              const rightIdx = orderedSeats.find(i => getPosition(i, humanPlayerIndex, state.players.length) === 'right');
-              if (rightIdx !== undefined) {
-                const p = state.players[rightIdx];
-                return (
-                  <PlayerArea
-                    player={p}
-                    isCurrentPlayer={state.currentPlayerIndex === rightIdx}
-                    isHumanControlled={false}
-                    position="right"
-                    currentTrick={state.currentTrick}
-                    phase={state.phase}
-                    seatIndex={rightIdx}
-                  />
-                );
-              }
-              return null;
-            })()}
-            <DrawPile
-              drawCount={state.drawPile.length}
-              discardCount={state.discardPile.length}
-              isDrawing={state.phase === 'auto_drawing'}
-            />
-          </div>
+          <span className="text-xs text-white/50">
+            スコア:{' '}
+            <span
+              className={`font-bold ${
+                human.score >= 0 ? 'text-green-400' : 'text-red-400'
+              }`}
+            >
+              {human.score > 0 ? '+' : ''}
+              {human.score}
+            </span>
+          </span>
         </div>
 
-        {/* Human player at bottom */}
-        <div className="w-full flex justify-center">
-          <PlayerArea
-            player={state.players[humanPlayerIndex]}
-            isCurrentPlayer={state.currentPlayerIndex === humanPlayerIndex}
-            isHumanControlled={true}
-            onPlayCard={onPlayCard}
-            position="bottom"
-            currentTrick={state.currentTrick}
-            phase={state.phase}
-            seatIndex={humanPlayerIndex}
-          />
+        {/* Page One button */}
+        {showPageOneButton && (
+          <button
+            type="button"
+            onClick={onDeclarePageOne}
+            className="w-full mb-2 py-2 bg-orange-500 hover:bg-orange-400 active:scale-95 text-white font-bold text-base rounded-xl transition-all shadow-lg shadow-orange-500/30"
+          >
+            🎴 ページワン！宣言
+          </button>
+        )}
+
+        {/* Hand */}
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+          {human.hand.length === 0 ? (
+            <div className="text-white/30 text-sm py-3 w-full text-center">
+              手札なし
+            </div>
+          ) : (
+            human.hand.map((card) => {
+              const isPlayable =
+                canPlay &&
+                (isLeading || canPlayCard(card, state.currentTrick));
+              return (
+                <CardComponent
+                  key={card.id}
+                  card={card}
+                  size="sm"
+                  onClick={isPlayable ? () => onPlayCard(card.id) : undefined}
+                  disabled={canPlay && !isPlayable}
+                  highlight={isPlayable}
+                  className="shrink-0"
+                />
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* ── Overlays ─────────────────────────────────────────────────── */}
-      {showSuitPicker && (
-        <SuitPicker onSelect={onDeclareJokerSuit} />
-      )}
-      {showPageOneButton && (
-        <PageOneButton
-          onDeclare={onDeclarePageOne}
-          playerName={state.players[humanPlayerIndex].name}
-        />
-      )}
+      {/* ── Overlays ────────────────────────────────────────────── */}
+      {showSuitPicker && <SuitPicker onSelect={onDeclareJokerSuit} />}
     </div>
   );
 }
