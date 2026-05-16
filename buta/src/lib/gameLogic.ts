@@ -173,15 +173,10 @@ export function playCard(
   if (isPenalty) {
     // Current player takes the entire pile into their hand
     penaltyCards = [...newPile];
-    const penaltyCount = newPile.length;
 
     newPlayers[state.currentPlayerIndex] = {
       ...newPlayers[state.currentPlayerIndex],
       hand: [...newPlayers[state.currentPlayerIndex].hand, ...newPile],
-      penaltyCountThisRound:
-        newPlayers[state.currentPlayerIndex].penaltyCountThisRound + penaltyCount,
-      totalPenaltyCount:
-        newPlayers[state.currentPlayerIndex].totalPenaltyCount + penaltyCount,
     };
 
     // Check if round ends (no circle cards left)
@@ -189,6 +184,15 @@ export function playCard(
     if (remainingCircle.length === 0) {
       newPhase =
         state.currentRound >= state.settings.rounds ? 'game_end' : 'round_end';
+    }
+
+    // Capture end-of-round scores (actual hand counts, not intake)
+    if (newPhase !== 'playing') {
+      newPlayers = newPlayers.map((p) => ({
+        ...p,
+        penaltyCountThisRound: p.hand.length,
+        totalPenaltyCount: p.totalPenaltyCount + p.hand.length,
+      }));
     }
 
     nextPlayerIndex =
@@ -215,6 +219,15 @@ export function playCard(
   if (remainingCircle.length === 0) {
     newPhase =
       state.currentRound >= state.settings.rounds ? 'game_end' : 'round_end';
+  }
+
+  // Capture end-of-round scores (actual hand counts, not intake)
+  if (newPhase !== 'playing') {
+    newPlayers = newPlayers.map((p) => ({
+      ...p,
+      penaltyCountThisRound: p.hand.length,
+      totalPenaltyCount: p.totalPenaltyCount + p.hand.length,
+    }));
   }
 
   nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;

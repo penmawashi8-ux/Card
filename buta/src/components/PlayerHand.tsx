@@ -71,7 +71,7 @@ export default function PlayerHand({
           )}
         </div>
         <div className="flex items-center gap-2 text-xs text-white/50">
-          <span>Round: {player.penaltyCountThisRound}</span>
+          <span>Round: {player.hand.length}</span>
           <span className="text-white/30">|</span>
           <span>Total: {player.totalPenaltyCount}</span>
         </div>
