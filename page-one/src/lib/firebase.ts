@@ -83,7 +83,7 @@ export async function createRoom(
   if (!database) return null;
 
   const code = generateRoomCode();
-  const newRoomRef = push(ref(database, 'rooms'));
+  const newRoomRef = push(ref(database, 'pageone/rooms'));
 
   const roomData = {
     code,
@@ -101,7 +101,7 @@ export async function createRoom(
 
   try {
     await set(newRoomRef, roomData);
-    await set(ref(database, `roomCodes/${code}`), newRoomRef.key);
+    await set(ref(database, `pageone/roomCodes/${code}`), newRoomRef.key);
     return mapToRoom(newRoomRef.key!, roomData);
   } catch (err) {
     console.error('[firebase] createRoom error:', err);
@@ -120,11 +120,11 @@ export async function joinRoom(
   if (!database) return null;
 
   try {
-    const codeSnap = await get(ref(database, `roomCodes/${code.toUpperCase()}`));
+    const codeSnap = await get(ref(database, `pageone/roomCodes/${code.toUpperCase()}`));
     if (!codeSnap.exists()) return null;
     const roomId = codeSnap.val() as string;
 
-    const roomSnap = await get(ref(database, `rooms/${roomId}`));
+    const roomSnap = await get(ref(database, `pageone/rooms/${roomId}`));
     if (!roomSnap.exists()) return null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -136,7 +136,7 @@ export async function joinRoom(
       { id: playerId, name: playerName, isHost: false, isReady: false },
     ];
 
-    await update(ref(database, `rooms/${roomId}`), { players });
+    await update(ref(database, `pageone/rooms/${roomId}`), { players });
     return mapToRoom(roomId, { ...data, players });
   } catch (err) {
     console.error('[firebase] joinRoom error:', err);
@@ -150,7 +150,7 @@ export async function getRoom(roomId: string): Promise<Room | null> {
   const database = getDb();
   if (!database) return null;
   try {
-    const snap = await get(ref(database, `rooms/${roomId}`));
+    const snap = await get(ref(database, `pageone/rooms/${roomId}`));
     if (!snap.exists()) return null;
     return mapToRoom(roomId, snap.val());
   } catch (err) {
@@ -168,7 +168,7 @@ export async function updateGameState(
   const database = getDb();
   if (!database) return;
   try {
-    await update(ref(database, `rooms/${roomId}`), { gameState, status: 'playing' });
+    await update(ref(database, `pageone/rooms/${roomId}`), { gameState, status: 'playing' });
   } catch (err) {
     console.error('[firebase] updateGameState error:', err);
   }
@@ -183,7 +183,7 @@ export function subscribeToRoom(
   const database = getDb();
   if (!database) return null;
 
-  const unsubscribe = onValue(ref(database, `rooms/${roomId}`), (snapshot) => {
+  const unsubscribe = onValue(ref(database, `pageone/rooms/${roomId}`), (snapshot) => {
     if (snapshot.exists()) {
       callback(mapToRoom(roomId, snapshot.val()));
     }
