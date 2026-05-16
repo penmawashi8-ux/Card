@@ -3,6 +3,14 @@
 import { useState } from 'react';
 import type { GameSettings } from '@/types/game';
 
+const RANDOM_NAME_PREFIXES = ['ぶた', 'パンダ', 'ネコ', 'キツネ', 'タヌキ', 'クマ', 'ウサギ', 'ライオン'];
+
+function generateRandomName(): string {
+  const prefix = RANDOM_NAME_PREFIXES[Math.floor(Math.random() * RANDOM_NAME_PREFIXES.length)];
+  const num = Math.floor(1000 + Math.random() * 9000);
+  return `${prefix}${num}`;
+}
+
 interface RoomLobbyProps {
   onCreateRoom: (playerName: string, settings: GameSettings, maxPlayers: number) => void;
   onJoinRoom: (code: string, playerName: string) => void;
@@ -176,11 +184,8 @@ export function RoomLobby({
 
           <button
             type="button"
-            onClick={() =>
-              createName.trim() && onCreateRoom(createName.trim(), createSettings, maxPlayers)
-            }
-            disabled={!createName.trim()}
-            className="w-full py-3 bg-green-600 hover:bg-green-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"
+            onClick={() => onCreateRoom(createName.trim() || generateRandomName(), createSettings, maxPlayers)}
+            className="w-full py-3 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-bold rounded-xl transition-all"
           >
             ルームを作成する
           </button>
@@ -217,10 +222,9 @@ export function RoomLobby({
             type="button"
             onClick={() =>
               joinCode.length >= 4 &&
-              joinName.trim() &&
-              onJoinRoom(joinCode, joinName.trim())
+              onJoinRoom(joinCode, joinName.trim() || generateRandomName())
             }
-            disabled={joinCode.length < 4 || !joinName.trim()}
+            disabled={joinCode.length < 4}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"
           >
             ルームに参加する

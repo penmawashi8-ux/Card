@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Dispatch, SetStateAction } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import type { GameState, Room, GameSettings, PlayerSetupConfig } from '@/types/game';
 import { initializeGame } from '@/lib/gameLogic';
@@ -109,21 +109,30 @@ export default function OnlineRoomPage() {
       <WaitingRoom
         room={room}
         playerId={playerId}
-        onStartGame={async () => {
-          // Human players first, then fill remaining slots with CPUs
-          const humanConfigs: PlayerSetupConfig[] = room.players.map((rp) => ({
-            name: rp.name,
-            type: 'human',
-            cpuDifficulty: 'normal',
-          }));
-          const cpuCount = Math.max(0, room.maxPlayers - room.players.length);
-          const cpuConfigs: PlayerSetupConfig[] = Array.from({ length: cpuCount }, (_, i) => ({
-            name: `CPU ${i + 1}`,
-            type: 'cpu',
-            cpuDifficulty: 'normal',
-          }));
-          const state = initializeGame(room.settings, [...humanConfigs, ...cpuConfigs]);
-          await updateGameState(room.id, state);
+        onStartGame={async (setStartError, setStarting) => {
+          setStartError(null);
+          setStarting(true);
+          try {
+            const humanConfigs: PlayerSetupConfig[] = room.players.map((rp) => ({
+              name: rp.name,
+              type: 'human',
+              cpuDifficulty: 'normal',
+            }));
+            const cpuCount = Math.max(0, room.maxPlayers - room.players.length);
+            const cpuConfigs: PlayerSetupConfig[] = Array.from({ length: cpuCount }, (_, i) => ({
+              name: `CPU ${i + 1}`,
+              type: 'cpu',
+              cpuDifficulty: 'normal',
+            }));
+            const state = initializeGame(room.settings, [...humanConfigs, ...cpuConfigs]);
+            const ok = await updateGameState(room.id, state);
+            if (!ok) setStartError('ゲームの開始に失敗しました。もう一度お試しください。');
+          } catch (err) {
+            console.error('[WaitingRoom] onStartGame error:', err);
+            setStartError('ゲームの開始中にエラーが発生しました。');
+          } finally {
+            setStarting(false);
+          }
         }}
         onLeave={() => router.push('/online')}
       />
@@ -152,12 +161,17 @@ export default function OnlineRoomPage() {
 interface WaitingRoomProps {
   room: Room;
   playerId: string;
-  onStartGame: () => void;
+  onStartGame: (
+    setError: Dispatch<SetStateAction<string | null>>,
+    setStarting: Dispatch<SetStateAction<boolean>>,
+  ) => void;
   onLeave: () => void;
 }
 
 function WaitingRoom({ room, playerId, onStartGame, onLeave }: WaitingRoomProps) {
   const isHost = room.players.find((p) => p.id === playerId)?.isHost ?? false;
+  const [startError, setStartError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
 
   return (
     <div className="min-h-screen felt-table flex flex-col items-center justify-center p-4">
@@ -213,13 +227,22 @@ function WaitingRoom({ room, playerId, onStartGame, onLeave }: WaitingRoomProps)
           </p>
         </div>
 
+        {startError && (
+          <div className="mb-3 bg-red-900/60 border border-red-500/40 rounded-xl px-4 py-2 text-red-300 text-sm text-center">
+            {startError}
+          </div>
+        )}
+
         <div className="space-y-2">
           {isHost && (
             <button
-              onClick={onStartGame}
-              className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-stone-900 font-bold rounded-xl transition-all"
+              onClick={() => onStartGame(setStartError, setIsStarting)}
+              disabled={isStarting}
+              className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-stone-900 font-bold rounded-xl transition-all"
             >
-              ゲームを開始する ({room.players.length + Math.max(0, room.maxPlayers - room.players.length)}人)
+              {isStarting
+                ? '開始中…'
+                : `ゲームを開始する (${room.players.length + Math.max(0, room.maxPlayers - room.players.length)}人)`}
             </button>
           )}
           {!isHost && (
