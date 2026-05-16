@@ -14,6 +14,7 @@ interface PlayerHandProps {
   topPileCard: Card | null;
   penaltyOnSameNumber: boolean;
   showPenaltyHighlight?: boolean;
+  flippingCardId?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ export default function PlayerHand({
   topPileCard,
   penaltyOnSameNumber,
   showPenaltyHighlight = false,
+  flippingCardId,
 }: PlayerHandProps) {
   const hasCards = player.hand.length > 0;
 
@@ -85,7 +87,13 @@ export default function PlayerHand({
             const safe = isSafeToPlay(card);
             const canPlay = isCurrentPlayer && !isAnimating;
             return (
-              <div key={card.id} className="relative">
+              <div
+                key={card.id}
+                className={[
+                  'relative',
+                  flippingCardId === card.id ? 'animate-card-lift' : '',
+                ].join(' ')}
+              >
                 <CardFace
                   card={card}
                   size="sm"

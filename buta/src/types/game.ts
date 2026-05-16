@@ -103,3 +103,12 @@ export interface ActionResult {
   isPenalty: boolean;
   penaltyCards?: Card[];
 }
+
+// ─── Flip animation ───────────────────────────────────────────────────────────
+
+export interface FlippingCardInfo {
+  source: 'circle' | 'hand';
+  circleIndex?: number;
+  handCardId?: string;
+  card: Card;
+}

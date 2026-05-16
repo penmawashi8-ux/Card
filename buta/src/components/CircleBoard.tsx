@@ -1,15 +1,47 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import type { GameState } from '@/types/game';
+import React, { useMemo, useState, useEffect } from 'react';
+import type { GameState, FlippingCardInfo, Card } from '@/types/game';
 import { getCircleCardIndices } from '@/lib/gameLogic';
 import CardBack from './CardBack';
+import CardFace from './CardFace';
 
 interface CircleBoardProps {
   state: GameState;
   onCardClick: (index: number) => void;
   isHumanTurn: boolean;
   isAnimating: boolean;
+  flippingCard?: FlippingCardInfo | null;
+}
+
+/** 3-D card flip: shows CardBack, then flips to reveal CardFace */
+function FlipCard({ card }: { card: Card }) {
+  const [flipped, setFlipped] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setFlipped(true), 20);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div style={{ perspective: '500px', width: '2.5rem', height: '3.5rem' }}>
+      <div
+        style={{
+          transformStyle: 'preserve-3d',
+          transition: 'transform 0.34s ease-in-out',
+          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+        }}
+      >
+        <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}>
+          <CardBack size="sm" />
+        </div>
+        <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}>
+          <CardFace card={card} size="sm" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -21,6 +53,7 @@ export default function CircleBoard({
   onCardClick,
   isHumanTurn,
   isAnimating,
+  flippingCard,
 }: CircleBoardProps) {
   const total = state.circleCards.length; // should be 52
   const availableIndices = useMemo(
@@ -51,7 +84,9 @@ export default function CircleBoard({
     >
       {positions.map(({ x, y }, idx) => {
         const hasCard = availableIndices.has(idx);
-        const canClick = isHumanTurn && hasCard && !isAnimating;
+        const isFlipping =
+          flippingCard?.source === 'circle' && flippingCard.circleIndex === idx;
+        const canClick = isHumanTurn && hasCard && !isAnimating && !isFlipping;
 
         return (
           <div
@@ -59,7 +94,9 @@ export default function CircleBoard({
             className="absolute transform -translate-x-1/2 -translate-y-1/2"
             style={{ left: `${x}%`, top: `${y}%` }}
           >
-            {hasCard ? (
+            {isFlipping ? (
+              <FlipCard card={flippingCard!.card} />
+            ) : hasCard ? (
               <CardBack
                 size="sm"
                 onClick={canClick ? () => onCardClick(idx) : undefined}

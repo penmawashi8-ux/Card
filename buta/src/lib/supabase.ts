@@ -212,15 +212,19 @@ export async function getRoom(roomId: string): Promise<Room | null> {
 export async function updateGameState(
   roomId: string,
   gameState: GameState,
-): Promise<boolean> {
+): Promise<{ ok: boolean; errorCode?: string }> {
   const database = getDb();
-  if (!database) return false;
+  if (!database) return { ok: false, errorCode: 'DB_NOT_CONFIGURED' };
   try {
-    await update(ref(database, `rooms/${roomId}`), { gameState, status: 'playing' });
-    return true;
+    const cleanState = JSON.parse(JSON.stringify(gameState)) as GameState;
+    await set(ref(database, `rooms/${roomId}/gameState`), cleanState);
+    await set(ref(database, `rooms/${roomId}/status`), 'playing');
+    return { ok: true };
   } catch (err) {
-    console.error('[firebase] updateGameState error:', err);
-    return false;
+    const code = (err as { code?: string })?.code;
+    const message = (err as Error)?.message ?? String(err);
+    console.error('[firebase] updateGameState error:', code, message, err);
+    return { ok: false, errorCode: code ?? message.slice(0, 80) };
   }
 }
 

@@ -89,7 +89,7 @@ function ActiveGame({ initialState, playerId, onReturnToMenu }: ActiveGameProps)
   // First human player is always index 0 for local games
   const humanPlayerIndex = 0;
 
-  const { state, isAnimating, performAction, startNextRound, resetGame } =
+  const { state, isAnimating, flippingCard, performAction, startNextRound, resetGame } =
     useGame(initialState, { playerId });
 
   const handleFlipCircleCard = useCallback(
@@ -138,6 +138,7 @@ function ActiveGame({ initialState, playerId, onReturnToMenu }: ActiveGameProps)
           onFlipCircleCard={handleFlipCircleCard}
           onPlayFromHand={handlePlayFromHand}
           isAnimating={isAnimating}
+          flippingCard={flippingCard}
         />
       </main>
 
