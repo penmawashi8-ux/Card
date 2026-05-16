@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { GameState } from '@/types/game';
+import type { GameState, FlippingCardInfo } from '@/types/game';
 import { playCard, startNextRound as gameStartNextRound, initializeGame } from '@/lib/gameLogic';
 import { getCpuDecision } from '@/lib/cpuAI';
 import { soundManager } from '@/lib/sounds';
@@ -17,6 +17,7 @@ interface UseGameOptions {
 interface UseGameReturn {
   state: GameState;
   isAnimating: boolean;
+  flippingCard: FlippingCardInfo | null;
   performAction: (
     source: 'circle' | 'hand',
     circleIndex?: number,
@@ -34,6 +35,7 @@ export function useGame(
 ): UseGameReturn {
   const [state, setState] = useState<GameState>(initialState);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [flippingCard, setFlippingCard] = useState<FlippingCardInfo | null>(null);
   const animatingRef = useRef(false);
 
   // Always keep a ref to the latest state so setTimeout callbacks don't use stale closures
@@ -101,50 +103,70 @@ export function useGame(
       animatingRef.current = true;
       setIsAnimating(true);
 
-      // Play pre-action sound
-      if (source === 'circle') {
-        soundManager.playCardFlip();
+      // Build flip info and play sound up-front
+      let flipInfo: FlippingCardInfo | null = null;
+      if (source === 'circle' && circleIndex !== undefined) {
+        const card = currentState.circleCards[circleIndex];
+        if (card) {
+          flipInfo = { source: 'circle', circleIndex, card };
+          setFlippingCard(flipInfo);
+          soundManager.playCardFlip();
+        }
+      } else if (source === 'hand' && handCardId) {
+        const player = currentState.players[currentState.currentPlayerIndex];
+        const card = player.hand.find((c) => c.id === handCardId);
+        if (card) {
+          flipInfo = { source: 'hand', handCardId, card };
+          setFlippingCard(flipInfo);
+        }
       }
 
-      let result;
-      try {
-        result = playCard(currentState, source, circleIndex, handCardId);
-      } catch (err) {
-        console.error('[useGame] playCard error:', err);
-        animatingRef.current = false;
-        setIsAnimating(false);
-        return;
-      }
+      // Delay game logic to let the flip animation play first
+      const flipDelay = source === 'circle' ? 380 : source === 'hand' ? 180 : 0;
 
-      // Play post-action sounds
-      if (result.isPenalty) {
-        soundManager.playPenalty();
-      } else {
-        soundManager.playCardPlace();
-      }
-
-      // Handle phase transition sounds
-      const newPhase = result.newState.phase;
-      if (newPhase === 'round_end') {
-        setTimeout(() => soundManager.playRoundEnd(), 300);
-      } else if (newPhase === 'game_end') {
-        setTimeout(() => soundManager.playWin(), 300);
-      }
-
-      setState(result.newState);
-
-      // Sync to Supabase if online game
-      if (roomId) {
-        updateGameState(roomId, result.newState).then((res) => {
-          if (!res.ok) console.error('[useGame] updateGameState failed:', res.errorCode);
-        });
-      }
-
-      // Clear animation state after a brief window
       setTimeout(() => {
-        animatingRef.current = false;
-        setIsAnimating(false);
-      }, 600);
+        let result;
+        try {
+          result = playCard(currentState, source, circleIndex, handCardId);
+        } catch (err) {
+          console.error('[useGame] playCard error:', err);
+          animatingRef.current = false;
+          setIsAnimating(false);
+          setFlippingCard(null);
+          return;
+        }
+
+        // Play post-action sounds
+        if (result.isPenalty) {
+          soundManager.playPenalty();
+        } else {
+          soundManager.playCardPlace();
+        }
+
+        // Handle phase transition sounds
+        const newPhase = result.newState.phase;
+        if (newPhase === 'round_end') {
+          setTimeout(() => soundManager.playRoundEnd(), 300);
+        } else if (newPhase === 'game_end') {
+          setTimeout(() => soundManager.playWin(), 300);
+        }
+
+        setState(result.newState);
+        setFlippingCard(null);
+
+        // Sync to Firebase if online game
+        if (roomId) {
+          updateGameState(roomId, result.newState).then((res) => {
+            if (!res.ok) console.error('[useGame] updateGameState failed:', res.errorCode);
+          });
+        }
+
+        // Clear animation state after landing animation finishes
+        setTimeout(() => {
+          animatingRef.current = false;
+          setIsAnimating(false);
+        }, 600);
+      }, flipDelay);
     },
     [roomId],
   );
@@ -196,5 +218,5 @@ export function useGame(
     }
   }, [initialState, roomId]);
 
-  return { state, isAnimating, performAction, startNextRound, resetGame };
+  return { state, isAnimating, flippingCard, performAction, startNextRound, resetGame };
 }

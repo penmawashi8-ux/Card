@@ -217,6 +217,7 @@ export async function updateGameState(
   if (!database) return { ok: false, errorCode: 'DB_NOT_CONFIGURED' };
   try {
     // Firebase SDK cannot serialize `undefined` values — strip them first.
+
     const cleanState = JSON.parse(JSON.stringify(gameState)) as GameState;
     await set(ref(database, `rooms/${roomId}/gameState`), cleanState);
     await set(ref(database, `rooms/${roomId}/status`), 'playing');

@@ -66,6 +66,19 @@ const config: Config = {
           '0%':   { transform: 'scale(1)', opacity: '1' },
           '100%': { transform: 'scale(1.5)', opacity: '0' },
         },
+        'card-land': {
+          '0%':   { transform: 'scale(1.22) translateY(-12px)', opacity: '0.5' },
+          '65%':  { transform: 'scale(0.97) translateY(2px)',   opacity: '1' },
+          '100%': { transform: 'scale(1) translateY(0)',         opacity: '1' },
+        },
+        'card-lift': {
+          '0%':   { transform: 'translateY(0) scale(1)',       opacity: '1' },
+          '100%': { transform: 'translateY(-8px) scale(1.08)', opacity: '0.65' },
+        },
+        'pulse-subtle': {
+          '0%, 100%': { transform: 'scale(1)',    opacity: '0.85' },
+          '50%':      { transform: 'scale(1.04)', opacity: '1' },
+        },
       },
       animation: {
         'card-flip':    'card-flip 0.4s ease-in-out',
@@ -74,6 +87,9 @@ const config: Config = {
         'pile-glow':    'pile-glow 1s ease-in-out infinite',
         'float-in':     'float-in 0.3s ease-out',
         'pulse-ring':   'pulse-ring 1s ease-out infinite',
+        'card-land':    'card-land 0.35s ease-out',
+        'card-lift':    'card-lift 0.18s ease-out forwards',
+        'pulse-subtle': 'pulse-subtle 1.5s ease-in-out infinite',
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],

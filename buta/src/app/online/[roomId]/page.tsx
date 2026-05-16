@@ -285,7 +285,7 @@ function ActiveOnlineGame({
   roomId,
   onReturnToLobby,
 }: ActiveOnlineGameProps) {
-  const { state, isAnimating, performAction, startNextRound, resetGame } =
+  const { state, isAnimating, flippingCard, performAction, startNextRound, resetGame } =
     useGame(initialState, { playerId, roomId });
 
   const handleFlipCircleCard = useCallback(
@@ -336,6 +336,7 @@ function ActiveOnlineGame({
           onFlipCircleCard={handleFlipCircleCard}
           onPlayFromHand={handlePlayFromHand}
           isAnimating={isAnimating}
+          flippingCard={flippingCard}
         />
       </main>
 
