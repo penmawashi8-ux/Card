@@ -135,9 +135,9 @@ export function useGame(
 
       // Sync to Supabase if online game
       if (roomId) {
-        updateGameState(roomId, result.newState).catch((err) =>
-          console.error('[useGame] updateGameState error:', err),
-        );
+        updateGameState(roomId, result.newState).then((res) => {
+          if (!res.ok) console.error('[useGame] updateGameState failed:', res.errorCode);
+        });
       }
 
       // Clear animation state after a brief window
@@ -171,7 +171,9 @@ export function useGame(
       const nextState = gameStartNextRound(prev);
 
       if (roomId) {
-        updateGameState(roomId, nextState).catch(console.error);
+        updateGameState(roomId, nextState).then((res) => {
+          if (!res.ok) console.error('[useGame] startNextRound sync failed:', res.errorCode);
+        });
       }
 
       return nextState;
@@ -188,7 +190,9 @@ export function useGame(
     setState(fresh);
 
     if (roomId) {
-      updateGameState(roomId, fresh).catch(console.error);
+      updateGameState(roomId, fresh).then((res) => {
+        if (!res.ok) console.error('[useGame] resetGame sync failed:', res.errorCode);
+      });
     }
   }, [initialState, roomId]);
 

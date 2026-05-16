@@ -16,7 +16,7 @@ import {
   type Database,
 } from 'firebase/database';
 
-import type { GameSettings, GameState, Room, Player, Card, PlayerSetupConfig } from '@/types/game';
+import type { GameSettings, GameState, Room, RoomPlayer, Player, Card, PlayerSetupConfig } from '@/types/game';
 
 // ─── Firebase array normalization ─────────────────────────────────────────────
 // Firebase Realtime Database strips null entries from arrays (treats them as
@@ -113,7 +113,7 @@ function mapToRoom(id: string, data: Record<string, any>): Room {
     status:     data.status,
     gameState:  normalizeGameState(data.gameState),
     settings:   data.settings,
-    players:    data.players ?? [],
+    players:    toArray<RoomPlayer>(data.players),
     maxPlayers: data.maxPlayers ?? 4,
   };
 }
@@ -212,15 +212,20 @@ export async function getRoom(roomId: string): Promise<Room | null> {
 export async function updateGameState(
   roomId: string,
   gameState: GameState,
-): Promise<boolean> {
+): Promise<{ ok: boolean; errorCode?: string }> {
   const database = getDb();
-  if (!database) return false;
+  if (!database) return { ok: false, errorCode: 'DB_NOT_CONFIGURED' };
   try {
-    await update(ref(database, `rooms/${roomId}`), { gameState, status: 'playing' });
-    return true;
+    // Use set() at child paths instead of update() to avoid issues with
+    // Firebase's nested-object merge semantics and null stripping.
+    await set(ref(database, `rooms/${roomId}/gameState`), gameState);
+    await set(ref(database, `rooms/${roomId}/status`), 'playing');
+    return { ok: true };
   } catch (err) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const code: string = (err as any)?.code ?? 'UNKNOWN';
     console.error('[firebase] updateGameState error:', err);
-    return false;
+    return { ok: false, errorCode: code };
   }
 }
 

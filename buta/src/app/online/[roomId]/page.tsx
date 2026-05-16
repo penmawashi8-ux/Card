@@ -125,8 +125,14 @@ export default function OnlineRoomPage() {
               cpuDifficulty: 'normal',
             }));
             const state = initializeGame(room.settings, [...humanConfigs, ...cpuConfigs]);
-            const ok = await updateGameState(room.id, state);
-            if (!ok) setStartError('ゲームの開始に失敗しました。もう一度お試しください。');
+            const result = await updateGameState(room.id, state);
+            if (!result.ok) {
+              if (result.errorCode === 'PERMISSION_DENIED') {
+                setStartError('Firebaseの書き込み権限がありません。セキュリティルールを確認してください。');
+              } else {
+                setStartError(`ゲームの開始に失敗しました (${result.errorCode ?? 'unknown'})。`);
+              }
+            }
           } catch (err) {
             console.error('[WaitingRoom] onStartGame error:', err);
             setStartError('ゲームの開始中にエラーが発生しました。');
