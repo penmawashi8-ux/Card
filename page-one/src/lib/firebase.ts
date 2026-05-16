@@ -60,6 +60,28 @@ function generateRoomCode(): string {
 
 // ─── Data mapper ──────────────────────────────────────────────────────────────
 
+// Firebase drops empty arrays (stores them as null). Restore them so game logic
+// never sees null where it expects an array.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeGameState(gs: any): any {
+  if (!gs) return gs;
+  return {
+    ...gs,
+    drawPile:    Array.isArray(gs.drawPile)    ? gs.drawPile    : Object.values(gs.drawPile    ?? {}),
+    discardPile: Array.isArray(gs.discardPile) ? gs.discardPile : Object.values(gs.discardPile ?? {}),
+    players: (gs.players ?? []).map((p: any) => ({
+      ...p,
+      hand: Array.isArray(p.hand) ? p.hand : Object.values(p.hand ?? {}),
+    })),
+    currentTrick: gs.currentTrick ? {
+      ...gs.currentTrick,
+      cards: Array.isArray(gs.currentTrick.cards)
+        ? gs.currentTrick.cards
+        : Object.values(gs.currentTrick.cards ?? {}),
+    } : gs.currentTrick,
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapToRoom(id: string, data: Record<string, any>): Room {
   return {
@@ -67,9 +89,9 @@ function mapToRoom(id: string, data: Record<string, any>): Room {
     code:      data.code,
     hostId:    data.hostId,
     status:    data.status,
-    gameState: data.gameState ?? null,
+    gameState: data.gameState ? normalizeGameState(data.gameState) : null,
     settings:  data.settings,
-    players:   data.players ?? [],
+    players:   Array.isArray(data.players) ? data.players : Object.values(data.players ?? {}),
   };
 }
 
