@@ -217,10 +217,9 @@ function WaitingRoom({ room, playerId, onStartGame, onLeave }: WaitingRoomProps)
           {isHost && (
             <button
               onClick={onStartGame}
-              disabled={room.players.length < 2}
-              className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-stone-900 font-bold rounded-xl transition-all"
+              className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-stone-900 font-bold rounded-xl transition-all"
             >
-              ゲームを開始する ({room.players.length}人)
+              ゲームを開始する ({room.players.length + Math.max(0, room.maxPlayers - room.players.length)}人)
             </button>
           )}
           {!isHost && (
