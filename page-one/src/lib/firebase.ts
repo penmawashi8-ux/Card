@@ -29,7 +29,8 @@ const firebaseConfig = {
   appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const isConfigured = !!process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
+const _dbUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ?? '';
+const isConfigured = _dbUrl.startsWith('https://') && _dbUrl.includes('firebaseio');
 
 let db: Database | null = null;
 

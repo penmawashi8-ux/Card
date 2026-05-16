@@ -24,7 +24,13 @@ export default function OnlineRoomPage() {
   const [room, setRoom] = useState<Room | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const playerId = useId();
+  const fallbackId = useId();
+  const [playerId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('pageone_my_player_id') || fallbackId;
+    }
+    return fallbackId;
+  });
 
   useEffect(() => {
     if (!roomId) {
