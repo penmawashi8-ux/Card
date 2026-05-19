@@ -242,7 +242,6 @@ function ActiveOnlineGame({
     <div className="min-h-screen felt-table relative">
       <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-2 bg-black/30 backdrop-blur-sm border-b border-white/10">
         <div className="flex items-center gap-2">
-          <span className="text-2xl" aria-hidden>🃏</span>
           <span className="text-white font-bold text-lg hidden sm:block">ページワン</span>
           <span className="text-green-400 text-xs bg-green-900/60 px-2 py-0.5 rounded-full">
             オンライン

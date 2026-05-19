@@ -89,7 +89,6 @@ export function GameSetup({ onStart }: GameSetupProps) {
     <div className="w-full max-w-lg mx-auto">
       {/* Title */}
       <div className="text-center mb-6">
-        <div className="text-5xl mb-2">🐷</div>
         <h2 className="text-2xl font-bold text-white mb-1">ぶたのしっぽ 設定</h2>
         <p className="text-green-300 text-sm">3〜6人でプレイできます</p>
       </div>
@@ -255,7 +254,7 @@ export function GameSetup({ onStart }: GameSetupProps) {
           disabled={playerConfigs.some((p) => !p.name.trim())}
           className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-stone-900 font-bold text-lg rounded-xl transition-all shadow-lg shadow-yellow-500/30"
         >
-          🎮 ゲーム開始
+          ゲーム開始
         </button>
       </div>
     </div>

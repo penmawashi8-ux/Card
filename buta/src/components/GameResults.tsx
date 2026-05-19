@@ -18,28 +18,20 @@ export function GameResults({ state, onNextRound, onNewGame }: GameResultsProps)
   );
   const winner = sorted[0];
 
-  const medals = ['🥇', '🥈', '🥉'];
-
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-green-900 border-2 border-green-600 rounded-2xl p-6 max-w-md w-full shadow-2xl">
         {/* Header */}
         <div className="text-center mb-5">
           {isGameEnd ? (
-            <>
-              <div className="text-5xl mb-2 animate-bounce">🏆</div>
-              <h2 className="text-2xl font-bold text-yellow-400">ゲーム終了！</h2>
-            </>
+            <h2 className="text-2xl font-bold text-yellow-400">ゲーム終了！</h2>
           ) : (
-            <>
-              <div className="text-4xl mb-2">🔔</div>
-              <h2 className="text-xl font-bold text-white">
-                ラウンド {state.currentRound} 終了
-              </h2>
-            </>
+            <h2 className="text-xl font-bold text-white">
+              ラウンド {state.currentRound} 終了
+            </h2>
           )}
           <p className="text-green-300 mt-2 text-sm">
-            🎉 優勝:{' '}
+            優勝:{' '}
             <span className="text-yellow-400 font-bold">{winner.name}</span>
           </p>
         </div>
@@ -65,7 +57,7 @@ export function GameResults({ state, onNextRound, onNewGame }: GameResultsProps)
               ].join(' ')}
             >
               <span className="font-bold text-base">
-                {medals[i] ?? `${i + 1}位`}
+                {i + 1}位
               </span>
               <span className="truncate text-xs">
                 {player.type === 'cpu' ? '🤖 ' : '👤 '}

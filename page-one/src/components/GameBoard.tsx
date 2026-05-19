@@ -160,7 +160,7 @@ export default function GameBoard({
             onClick={onDeclarePageOne}
             className="w-full mb-2 py-2 bg-orange-500 hover:bg-orange-400 active:scale-95 text-white font-bold text-base rounded-xl transition-all shadow-lg shadow-orange-500/30"
           >
-            🎴 ページワン！宣言
+            ページワン！宣言
           </button>
         )}
 

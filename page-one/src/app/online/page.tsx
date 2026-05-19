@@ -66,7 +66,6 @@ export default function OnlinePage() {
         </Link>
 
         <div className="text-center mb-6">
-          <div className="text-5xl mb-2">🌐</div>
           <h1 className="text-2xl font-bold text-white mb-1">オンライン対戦</h1>
           <p className="text-green-300 text-sm">ルームコードを共有して友達と遊ぼう</p>
         </div>

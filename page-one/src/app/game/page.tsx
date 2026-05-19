@@ -85,7 +85,6 @@ function ActiveGame({ initialState, onReturnToMenu }: ActiveGameProps) {
       {/* Top navigation bar */}
       <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-2 bg-black/30 backdrop-blur-sm border-b border-white/10">
         <div className="flex items-center gap-2">
-          <span className="text-2xl" aria-hidden>🃏</span>
           <span className="text-white font-bold text-lg hidden sm:block">ページワン</span>
         </div>
         <button

@@ -9,7 +9,6 @@ export default function PageOneButton({ onDeclare, playerName }: PageOneButtonPr
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="glass p-8 rounded-2xl shadow-2xl max-w-xs w-full mx-4 animate-bounce-in text-center">
-        <div className="text-5xl mb-4">🃏</div>
         <h2 className="text-white font-bold text-xl mb-1">
           {playerName}
         </h2>
