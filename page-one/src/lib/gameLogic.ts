@@ -167,6 +167,11 @@ export function playLeadCard(state: GameState, cardId: string): GameState {
     i === playerIndex ? { ...p, hand: newHand } : p
   );
 
+  // 最後の1枚を出した瞬間にラウンド終了（joker禁止ルール対象外の場合）
+  if (newHand.length === 0 && !(state.settings.banJokerWin && card.isJoker)) {
+    return endRound({ ...state, players: newPlayers, currentTrick: newTrick });
+  }
+
   if (card.isJoker) {
     return {
       ...state,
@@ -242,6 +247,11 @@ export function playFollowCard(state: GameState, cardId: string): GameState {
     currentTrick: newTrick,
     drawnCardsThisTurn: 0,
   };
+
+  // 最後の1枚を出した瞬間にラウンド終了（joker禁止ルール対象外の場合）
+  if (newHand.length === 0 && !(state.settings.banJokerWin && card.isJoker)) {
+    return endRound(newState);
+  }
 
   if (newTrick.cards.length >= state.players.length) {
     return resolveTrick(newState);
@@ -462,16 +472,23 @@ export function advanceAfterTrickResult(state: GameState): GameState {
   const nextLeadIndex = winnerIndex !== -1 ? winnerIndex : 0;
   const nextLeadPlayer = players[nextLeadIndex];
 
-  if (!settings.autoPageOne && nextLeadPlayer.hand.length === 1 && !nextLeadPlayer.pageOneDeclared) {
-    return {
-      ...state,
-      phase: 'page_one_pending',
-      currentTrick: emptyTrick(nextLeadIndex),
-      currentPlayerIndex: nextLeadIndex,
-      leadPlayerIndex: nextLeadIndex,
-      drawingPlayerId: null,
-      message: `${nextLeadPlayer.name}！「ページワン！」を宣言してください`,
-    };
+  // 手札1枚のプレイヤー全員（勝者優先で順に）に宣言を求める
+  if (!settings.autoPageOne) {
+    for (let i = 0; i < players.length; i++) {
+      const idx = (nextLeadIndex + i) % players.length;
+      const p = players[idx];
+      if (p.hand.length === 1 && !p.pageOneDeclared) {
+        return {
+          ...state,
+          phase: 'page_one_pending',
+          currentTrick: emptyTrick(nextLeadIndex),
+          currentPlayerIndex: idx,
+          leadPlayerIndex: nextLeadIndex,
+          drawingPlayerId: null,
+          message: `${p.name}！「ページワン！」を宣言してください`,
+        };
+      }
+    }
   }
 
   return {
@@ -504,6 +521,22 @@ export function declarePageOne(state: GameState): GameState {
   const isLeading = currentTrick.cards.length === 0;
 
   if (isLeading) {
+    // 他に未宣言のプレイヤーがいれば続けて宣言を求める
+    if (!state.settings.autoPageOne) {
+      for (let i = 0; i < newPlayers.length; i++) {
+        const idx = (state.leadPlayerIndex + i) % newPlayers.length;
+        const p = newPlayers[idx];
+        if (p.hand.length === 1 && !p.pageOneDeclared) {
+          return {
+            ...state,
+            players: newPlayers,
+            phase: 'page_one_pending',
+            currentPlayerIndex: idx,
+            message: `${p.name}！「ページワン！」を宣言してください`,
+          };
+        }
+      }
+    }
     return {
       ...state,
       players: newPlayers,
@@ -516,6 +549,63 @@ export function declarePageOne(state: GameState): GameState {
     { ...state, players: newPlayers },
     playerIndex
   );
+}
+
+export function applyPageOnePenaltyAndAdvance(state: GameState): GameState {
+  const playerIndex = state.currentPlayerIndex;
+  const player = state.players[playerIndex];
+
+  let drawPile = [...state.drawPile];
+  let discardPile = [...state.discardPile];
+  const penaltyCards: Card[] = [];
+
+  for (let i = 0; i < 5 && (drawPile.length > 0 || discardPile.length > 0); i++) {
+    if (drawPile.length === 0) {
+      drawPile = shuffle(discardPile);
+      discardPile = [];
+    }
+    if (drawPile.length > 0) {
+      penaltyCards.push(drawPile.shift()!);
+    }
+  }
+
+  const newPlayers = state.players.map((p, i) =>
+    i === playerIndex
+      ? { ...p, hand: [...p.hand, ...penaltyCards], pageOneDeclared: false }
+      : p
+  );
+
+  const penalizedState = {
+    ...state,
+    players: newPlayers,
+    drawPile,
+    discardPile,
+    message: `${player.name} がページワンを忘れた！5枚ペナルティ`,
+  };
+
+  const { currentTrick } = state;
+
+  if (currentTrick.cards.length === 0) {
+    // トリック間の宣言待ち: 他の未宣言プレイヤーを確認してから進行
+    if (!state.settings.autoPageOne) {
+      for (let i = 0; i < newPlayers.length; i++) {
+        const idx = (state.leadPlayerIndex + i) % newPlayers.length;
+        const p = newPlayers[idx];
+        if (p.hand.length === 1 && !p.pageOneDeclared) {
+          return {
+            ...penalizedState,
+            phase: 'page_one_pending',
+            currentPlayerIndex: idx,
+            message: `${p.name}！「ページワン！」を宣言してください`,
+          };
+        }
+      }
+    }
+    return { ...penalizedState, phase: 'leading' };
+  }
+
+  // トリック進行中の宣言待ち: 次のフォロワーへ
+  return advanceToNextFollower(penalizedState, playerIndex);
 }
 
 export function applyPageOnePenalty(state: GameState): GameState {

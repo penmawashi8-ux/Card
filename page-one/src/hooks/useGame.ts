@@ -7,6 +7,7 @@ import {
   playFollowCard,
   declareJokerSuit,
   declarePageOne,
+  applyPageOnePenaltyAndAdvance,
   checkAndAutoPageOne,
   drawOneCard,
   startDrawing,
@@ -204,7 +205,6 @@ export function useGame(
     const player = state.players[state.currentPlayerIndex];
     if (player.type !== 'cpu') return;
 
-    // CPU auto-declares
     const timer = setTimeout(() => {
       const current = stateRef.current;
       if (current.phase !== 'page_one_pending') return;
@@ -217,6 +217,27 @@ export function useGame(
 
     return () => clearTimeout(timer);
   }, [state.phase, state.currentPlayerIndex, applyState]);
+
+  // ── 2秒以内に宣言しなければ人間プレイヤーにペナルティ ─────────────
+  useEffect(() => {
+    if (state.phase !== 'page_one_pending') return;
+    const player = state.players[state.currentPlayerIndex];
+    if (player.type === 'cpu') return;
+    // オンラインモードでは自分のプレイヤーのみが実行する
+    if (roomId && player.id !== options?.playerId) return;
+
+    const timer = setTimeout(() => {
+      const current = stateRef.current;
+      if (current.phase !== 'page_one_pending') return;
+      const p = current.players[current.currentPlayerIndex];
+      if (p.type === 'cpu') return;
+      if (roomId && p.id !== options?.playerId) return;
+      const next = applyPageOnePenaltyAndAdvance(current);
+      applyState(next);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [state.phase, state.currentPlayerIndex, applyState, roomId, options?.playerId]);
 
   // ── Public actions ───────────────────────────────────────────────────
 

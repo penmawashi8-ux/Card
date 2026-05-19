@@ -10,7 +10,7 @@ interface SetupScreenProps {
 const DEFAULT_SETTINGS: GameSettings = {
   rounds: 3,
   playerCount: 3,
-  autoPageOne: true,
+  autoPageOne: false,
   banJokerWin: false,
 };
 
