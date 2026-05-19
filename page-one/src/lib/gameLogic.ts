@@ -253,6 +253,16 @@ export function playFollowCard(state: GameState, cardId: string): GameState {
     return endRound(newState);
   }
 
+  // 手札1枚になった瞬間にページワン宣言を求める（自動宣言OFFの場合、トリック解決より優先）
+  if (!state.settings.autoPageOne && newHand.length === 1 && !newPlayers[playerIndex].pageOneDeclared) {
+    return {
+      ...newState,
+      phase: 'page_one_pending',
+      currentPlayerIndex: playerIndex,
+      message: `${player.name}！「ページワン！」を宣言してください`,
+    };
+  }
+
   if (newTrick.cards.length >= state.players.length) {
     return resolveTrick(newState);
   }
@@ -584,6 +594,11 @@ export function applyPageOnePenaltyAndAdvance(state: GameState): GameState {
   };
 
   const { currentTrick } = state;
+  const allPlayed = currentTrick.cards.length >= state.players.length;
+
+  if (allPlayed) {
+    return resolveTrick(penalizedState);
+  }
 
   if (currentTrick.cards.length === 0) {
     // トリック間の宣言待ち: 他の未宣言プレイヤーを確認してから進行
