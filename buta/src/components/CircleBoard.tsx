@@ -134,7 +134,7 @@ export default function CircleBoard({
               <div
                 className={[
                   'p-3 -m-3 rounded-xl',
-                  canClick ? 'cursor-pointer' : 'cursor-default',
+                  canClick ? 'cursor-pointer' : 'cursor-default pointer-events-none',
                 ].join(' ')}
                 onClick={canClick ? () => onCardClick(idx) : undefined}
               >

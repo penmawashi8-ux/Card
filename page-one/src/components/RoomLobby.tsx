@@ -58,7 +58,7 @@ export function RoomLobby({ onCreateRoom, onJoinRoom, isFirebaseEnabled }: RoomL
   const [createSettings, setCreateSettings] = useState<GameSettings>({
     rounds: 3,
     playerCount: 3,
-    autoPageOne: true,
+    autoPageOne: false,
     banJokerWin: false,
   });
 
