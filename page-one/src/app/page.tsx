@@ -38,7 +38,6 @@ export default function Home() {
       <div className="w-full max-w-sm">
         {/* Title */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-3">🃏</div>
           <h1 className="text-4xl font-bold text-white mb-1 tracking-tight">
             ページワン
           </h1>
@@ -54,7 +53,6 @@ export default function Home() {
             onClick={() => setShowSetup(true)}
             className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 hover:border-white/40 transition-all group"
           >
-            <span className="text-3xl">🤖</span>
             <div className="text-left">
               <div className="text-white font-bold text-base group-hover:text-yellow-300 transition-colors">
                 CPU対戦
@@ -68,7 +66,6 @@ export default function Home() {
             href="/online"
             className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 hover:border-white/40 transition-all group"
           >
-            <span className="text-3xl">🌐</span>
             <div className="text-left">
               <div className="text-white font-bold text-base group-hover:text-yellow-300 transition-colors">
                 オンライン対戦

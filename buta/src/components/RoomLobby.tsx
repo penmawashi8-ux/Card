@@ -83,7 +83,7 @@ export function RoomLobby({
                 : 'text-white/50 hover:text-white/70',
             ].join(' ')}
           >
-            {tab === 'create' ? '🏠 ルームを作る' : '🚪 ルームに参加'}
+            {tab === 'create' ? 'ルームを作る' : 'ルームに参加'}
           </button>
         ))}
       </div>

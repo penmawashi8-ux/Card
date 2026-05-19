@@ -21,11 +21,6 @@ export default function GameEndScreen({
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
       <div className="glass max-w-lg w-full p-8 text-center animate-bounce-in">
-        {/* Trophy emoji */}
-        <div className="text-6xl mb-4">
-          {isWinnerHuman ? '🏆' : '🎴'}
-        </div>
-
         <h2 className="text-3xl font-bold text-yellow-300 mb-2">
           {isWinnerHuman ? 'あなたの勝ち！' : `${winner.name} の勝ち！`}
         </h2>
@@ -45,8 +40,7 @@ export default function GameEndScreen({
           </h3>
           <div className="space-y-2">
             {standings.map((player, rank) => {
-              const medals = ['🥇', '🥈', '🥉', '4️⃣'];
-              const medal = medals[rank] ?? `${rank + 1}.`;
+              const medal = `${rank + 1}.`;
               return (
                 <div
                   key={player.id}

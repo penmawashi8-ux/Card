@@ -82,7 +82,6 @@ export default function SetupScreen({ onStart }: SetupScreenProps) {
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-3">🃏</div>
           <h1 className="text-4xl font-bold text-white mb-1">ページワン</h1>
           <p className="text-white/60">Page One · トリックテイキングゲーム</p>
         </div>

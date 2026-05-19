@@ -20,7 +20,7 @@ export default function RoundEndScreen({ state, onContinue }: RoundEndScreenProp
         </h2>
         {winnerPlayer && (
           <p className="text-center text-white font-bold text-lg mb-4">
-            🏆 {winnerPlayer.name} の勝ち！
+            {winnerPlayer.name} の勝ち！
           </p>
         )}
 
@@ -40,7 +40,6 @@ export default function RoundEndScreen({ state, onContinue }: RoundEndScreenProp
                 `}
               >
                 <span className="text-white font-medium">
-                  {player.id === currentRoundScore?.winnerId && '🏆 '}
                   {player.name}
                   {player.type === 'cpu' && (
                     <span className="text-white/40 text-xs ml-1">(CPU)</span>

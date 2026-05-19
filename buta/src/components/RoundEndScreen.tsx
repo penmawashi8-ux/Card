@@ -18,7 +18,6 @@ export default function RoundEndScreen({
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="glass max-w-md w-full p-8 text-center animate-bounce-in">
-        <div className="text-5xl mb-3">🐷</div>
         <h2 className="text-2xl font-bold text-yellow-300 mb-1">
           Round {state.currentRound} Complete!
         </h2>
