@@ -130,23 +130,15 @@ export default function CircleBoard({
             {isFlipping ? (
               <FlipCard card={flippingCard!.card} />
             ) : hasCard ? (
-              /* Expanded touch target wrapper (p-3 = +12px each side) */
-              <div
+              <CardBack
+                size="sm"
+                disabled={!canClick}
                 className={[
-                  'p-3 -m-3 rounded-xl',
                   canClick ? 'cursor-pointer' : 'cursor-default pointer-events-none',
+                  showPulse ? 'animate-pulse-subtle' : '',
                 ].join(' ')}
                 onClick={canClick ? () => onCardClick(idx) : undefined}
-              >
-                <CardBack
-                  size="sm"
-                  disabled={!canClick}
-                  className={[
-                    'pointer-events-none',
-                    showPulse ? 'animate-pulse-subtle' : '',
-                  ].join(' ')}
-                />
-              </div>
+              />
             ) : (
               /* Empty slot – pointer-events-none so it never blocks card taps */
               <div
