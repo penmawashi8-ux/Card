@@ -93,6 +93,9 @@ function normalizeGameState(gs: any): any {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapToRoom(id: string, data: Record<string, any>): Room {
+  const players: OnlinePlayer[] = Array.isArray(data.players)
+    ? data.players
+    : Object.values(data.players ?? {});
   return {
     id,
     code:      data.code,
@@ -100,10 +103,11 @@ function mapToRoom(id: string, data: Record<string, any>): Room {
     status:    data.status,
     gameState: data.gameState ? normalizeGameState(data.gameState) : null,
     settings:  data.settings,
-    players:   Array.isArray(data.players) ? data.players : Object.values(data.players ?? {}),
+    players,
     password:  data.password ?? null,
     isPublic:  data.isPublic ?? true,
-    hostName:  data.hostName ?? '',
+    // Fall back to first player's name for rooms created before hostName was added
+    hostName:  data.hostName || players[0]?.name || '',
     createdAt: data.createdAt ?? 0,
   };
 }
@@ -290,11 +294,24 @@ export function subscribeToRoomList(
     equalTo('waiting'),
   );
 
+  const THREE_HOURS = 3 * 60 * 60 * 1000;
+
   const unsubscribe = onValue(waitingQuery, (snapshot) => {
     const rooms: Room[] = [];
+    const staleIds: string[] = [];
+
     snapshot.forEach((child) => {
-      rooms.push(mapToRoom(child.key!, child.val()));
+      const room = mapToRoom(child.key!, child.val());
+      const isStale = room.createdAt === 0 || Date.now() - room.createdAt > THREE_HOURS;
+      if (isStale) {
+        staleIds.push(room.id);
+      } else {
+        rooms.push(room);
+      }
     });
+
+    for (const id of staleIds) finishRoom(id).catch(console.error);
+
     rooms.sort((a, b) => b.createdAt - a.createdAt);
     callback(rooms);
   });

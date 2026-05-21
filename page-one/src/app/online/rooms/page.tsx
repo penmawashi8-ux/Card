@@ -11,6 +11,14 @@ function randomName() {
   return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
 }
 
+function relativeTime(ms: number): string {
+  const elapsed = Date.now() - ms;
+  const mins = Math.floor(elapsed / 60000);
+  if (mins < 1) return 'たった今';
+  if (mins < 60) return `${mins}分前`;
+  return `${Math.floor(mins / 60)}時間前`;
+}
+
 export default function RoomsPage() {
   const router = useRouter();
 
@@ -144,13 +152,13 @@ export default function RoomsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-white font-semibold text-sm truncate">
-                          👑 {room.hostName || 'ホスト'}
+                          👑 {room.hostName || '名前なし'}
                         </span>
                         {!room.isPublic && (
-                          <span className="text-yellow-400/80 text-xs shrink-0">パスワードあり</span>
+                          <span className="text-yellow-400/80 text-xs shrink-0">🔒</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-white/45 text-xs">
+                      <div className="flex items-center gap-1.5 text-white/45 text-xs flex-wrap">
                         <span>{humanCount}/{maxCount}人</span>
                         <span>·</span>
                         <span>{room.settings.rounds}ラウンド</span>
@@ -160,6 +168,10 @@ export default function RoomsPage() {
                             <span>自動宣言</span>
                           </>
                         )}
+                        <span>·</span>
+                        <span className="font-mono text-white/30">{room.code}</span>
+                        <span>·</span>
+                        <span>{relativeTime(room.createdAt)}</span>
                       </div>
                     </div>
 
