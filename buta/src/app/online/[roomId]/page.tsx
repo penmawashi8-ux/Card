@@ -10,6 +10,7 @@ import {
   getRoom,
   subscribeToRoom,
   updateGameState,
+  finishRoom,
 } from '@/lib/supabase';
 import GameBoard from '@/components/GameBoard';
 import RoundEndScreen from '@/components/RoundEndScreen';
@@ -287,6 +288,14 @@ function ActiveOnlineGame({
 }: ActiveOnlineGameProps) {
   const { state, isAnimating, flippingCard, performAction, startNextRound, resetGame } =
     useGame(initialState, { playerId, roomId });
+
+  // Mark room as finished when game ends so it disappears from the room list
+  useEffect(() => {
+    if (state.phase === 'game_end') {
+      finishRoom(roomId).catch(console.error);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
 
   const handleFlipCircleCard = useCallback(
     (index: number) => performAction('circle', index),

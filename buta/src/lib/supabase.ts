@@ -13,15 +13,15 @@ import {
   update,
   onValue,
   push,
+  query,
+  orderByChild,
+  equalTo,
   type Database,
 } from 'firebase/database';
 
 import type { GameSettings, GameState, Room, RoomPlayer, Player, Card, PlayerSetupConfig } from '@/types/game';
 
 // ─── Firebase array normalization ─────────────────────────────────────────────
-// Firebase Realtime Database strips null entries from arrays (treats them as
-// deletions), so [card, null, card] becomes {"0":card,"2":card}.  We must
-// reconstruct the original sparse array when reading back.
 
 function toArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -115,6 +115,10 @@ function mapToRoom(id: string, data: Record<string, any>): Room {
     settings:   data.settings,
     players:    toArray<RoomPlayer>(data.players),
     maxPlayers: data.maxPlayers ?? 4,
+    password:   data.password ?? null,
+    isPublic:   data.isPublic ?? true,
+    hostName:   data.hostName ?? '',
+    createdAt:  data.createdAt ?? 0,
   };
 }
 
@@ -125,12 +129,14 @@ export async function createRoom(
   settings: GameSettings,
   playerConfigs: PlayerSetupConfig[],
   maxPlayers: number = 4,
+  password?: string,
 ): Promise<Room | null> {
   const database = getDb();
   if (!database) return null;
 
   const code = generateRoomCode();
   const newRoomRef = push(ref(database, 'rooms'));
+  const hostName = playerConfigs[0]?.name ?? '';
 
   const roomData = {
     code,
@@ -139,6 +145,10 @@ export async function createRoom(
     gameState: null,
     settings,
     maxPlayers,
+    password:  password || null,
+    isPublic:  !password,
+    hostName,
+    createdAt: Date.now(),
     players: playerConfigs.map((cfg, i) => ({
       id:      i === 0 ? hostId : `player-${i}`,
       name:    cfg.name,
@@ -157,12 +167,13 @@ export async function createRoom(
   }
 }
 
-// ─── joinRoom ─────────────────────────────────────────────────────────────────
+// ─── joinRoom (by room code) ──────────────────────────────────────────────────
 
 export async function joinRoom(
   code: string,
   playerId: string,
   playerName: string,
+  password?: string,
 ): Promise<Room | null> {
   const database = getDb();
   if (!database) return null;
@@ -178,6 +189,7 @@ export async function joinRoom(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = roomSnap.val() as Record<string, any>;
     if (data.status !== 'waiting') return null;
+    if (data.password && data.password !== password) return null;
 
     const players = [
       ...(data.players ?? []),
@@ -188,6 +200,42 @@ export async function joinRoom(
     return mapToRoom(roomId, { ...data, players });
   } catch (err) {
     console.error('[firebase] joinRoom error:', err);
+    return null;
+  }
+}
+
+// ─── joinRoomById (from room list) ────────────────────────────────────────────
+
+export async function joinRoomById(
+  roomId: string,
+  playerId: string,
+  playerName: string,
+  password?: string,
+): Promise<Room | null> {
+  const database = getDb();
+  if (!database) return null;
+
+  try {
+    const roomSnap = await get(ref(database, `rooms/${roomId}`));
+    if (!roomSnap.exists()) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = roomSnap.val() as Record<string, any>;
+    if (data.status !== 'waiting') return null;
+    if (data.password && data.password !== password) return null;
+
+    const existingPlayers = toArray<RoomPlayer>(data.players);
+    if (existingPlayers.length >= (data.maxPlayers ?? 4)) return null;
+
+    const players = [
+      ...existingPlayers,
+      { id: playerId, name: playerName, isHost: false, isReady: false },
+    ];
+
+    await update(ref(database, `rooms/${roomId}`), { players });
+    return mapToRoom(roomId, { ...data, players });
+  } catch (err) {
+    console.error('[firebase] joinRoomById error:', err);
     return null;
   }
 }
@@ -216,8 +264,6 @@ export async function updateGameState(
   const database = getDb();
   if (!database) return { ok: false, errorCode: 'DB_NOT_CONFIGURED' };
   try {
-    // Firebase SDK cannot serialize `undefined` values — strip them first.
-
     const cleanState = JSON.parse(JSON.stringify(gameState)) as GameState;
     await set(ref(database, `rooms/${roomId}/gameState`), cleanState);
     await set(ref(database, `rooms/${roomId}/status`), 'playing');
@@ -227,6 +273,18 @@ export async function updateGameState(
     const message = (err as Error)?.message ?? String(err);
     console.error('[firebase] updateGameState error:', code, message, err);
     return { ok: false, errorCode: code ?? message.slice(0, 80) };
+  }
+}
+
+// ─── finishRoom ───────────────────────────────────────────────────────────────
+
+export async function finishRoom(roomId: string): Promise<void> {
+  const database = getDb();
+  if (!database) return;
+  try {
+    await update(ref(database, `rooms/${roomId}`), { status: 'finished' });
+  } catch (err) {
+    console.error('[firebase] finishRoom error:', err);
   }
 }
 
@@ -243,6 +301,33 @@ export function subscribeToRoom(
     if (snapshot.exists()) {
       callback(mapToRoom(roomId, snapshot.val()));
     }
+  });
+
+  return { unsubscribe };
+}
+
+// ─── subscribeToRoomList ──────────────────────────────────────────────────────
+
+export function subscribeToRoomList(
+  callback: (rooms: Room[]) => void,
+): { unsubscribe: () => void } | null {
+  const database = getDb();
+  if (!database) return null;
+
+  const waitingQuery = query(
+    ref(database, 'rooms'),
+    orderByChild('status'),
+    equalTo('waiting'),
+  );
+
+  const unsubscribe = onValue(waitingQuery, (snapshot) => {
+    const rooms: Room[] = [];
+    snapshot.forEach((child) => {
+      rooms.push(mapToRoom(child.key!, child.val()));
+    });
+    // Newest rooms first
+    rooms.sort((a, b) => b.createdAt - a.createdAt);
+    callback(rooms);
   });
 
   return { unsubscribe };

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { GameSettings } from '@/types/game';
 
 const RANDOM_NAMES = [
@@ -15,7 +16,7 @@ function getRandomName() {
 }
 
 interface RoomLobbyProps {
-  onCreateRoom: (playerName: string, settings: GameSettings) => void;
+  onCreateRoom: (playerName: string, settings: GameSettings, password?: string) => void;
   onJoinRoom: (code: string, playerName: string) => void;
   isFirebaseEnabled: boolean;
 }
@@ -55,6 +56,7 @@ export function RoomLobby({ onCreateRoom, onJoinRoom, isFirebaseEnabled }: RoomL
   const [activeTab, setActiveTab] = useState<Tab>('create');
 
   const [createName, setCreateName] = useState('');
+  const [password, setPassword] = useState('');
   const [createSettings, setCreateSettings] = useState<GameSettings>({
     rounds: 3,
     playerCount: 3,
@@ -109,7 +111,7 @@ export function RoomLobby({ onCreateRoom, onJoinRoom, isFirebaseEnabled }: RoomL
                 : 'text-white/50 hover:text-white/70',
             ].join(' ')}
           >
-            {tab === 'create' ? 'ルームを作る' : 'ルームに参加'}
+            {tab === 'create' ? 'ルームを作る' : 'ルームに入る'}
           </button>
         ))}
       </div>
@@ -183,9 +185,31 @@ export function RoomLobby({ onCreateRoom, onJoinRoom, isFirebaseEnabled }: RoomL
             label="ジョーカー上がり禁止"
           />
 
+          {/* Password */}
+          <div>
+            <label className="block text-white/60 text-xs mb-1.5">
+              パスワード
+              <span className="text-white/40 ml-1">— 空白で公開ルーム</span>
+            </label>
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              maxLength={20}
+              placeholder="設定しない場合は空白のまま"
+              className="w-full bg-white/10 text-white placeholder-white/30 rounded-lg px-3 py-2 text-sm border border-white/10 focus:border-yellow-400/60 focus:outline-none"
+            />
+          </div>
+
           <button
             type="button"
-            onClick={() => onCreateRoom(createName.trim() || getRandomName(), createSettings)}
+            onClick={() =>
+              onCreateRoom(
+                createName.trim() || getRandomName(),
+                createSettings,
+                password.trim() || undefined,
+              )
+            }
             className="w-full py-3 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-bold rounded-xl transition-all"
           >
             ルームを作成する
@@ -193,9 +217,24 @@ export function RoomLobby({ onCreateRoom, onJoinRoom, isFirebaseEnabled }: RoomL
         </div>
       )}
 
-      {/* Join room tab */}
+      {/* Join tab — room list + code fallback */}
       {activeTab === 'join' && (
         <div className="space-y-4">
+          {/* Primary: room list */}
+          <Link
+            href="/online/rooms"
+            className="flex items-center justify-between w-full px-4 py-4 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold rounded-xl transition-all"
+          >
+            <span>募集中のルーム一覧を見る</span>
+            <span className="text-xl">→</span>
+          </Link>
+
+          <div className="flex items-center gap-3 text-white/30 text-xs">
+            <div className="flex-1 h-px bg-white/10" />
+            コードで直接入る
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
           <div>
             <label className="block text-white/60 text-xs mb-1.5">ルームコード</label>
             <input
@@ -223,9 +262,9 @@ export function RoomLobby({ onCreateRoom, onJoinRoom, isFirebaseEnabled }: RoomL
             type="button"
             onClick={() => joinCode.length >= 4 && onJoinRoom(joinCode, joinName.trim() || getRandomName())}
             disabled={joinCode.length < 4}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"
+            className="w-full py-3 bg-white/15 hover:bg-white/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"
           >
-            ルームに参加する
+            コードで参加する
           </button>
         </div>
       )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { GameSettings } from '@/types/game';
 
 const RANDOM_NAME_PREFIXES = ['ぶた', 'パンダ', 'ネコ', 'キツネ', 'タヌキ', 'クマ', 'ウサギ', 'ライオン'];
@@ -12,7 +13,7 @@ function generateRandomName(): string {
 }
 
 interface RoomLobbyProps {
-  onCreateRoom: (playerName: string, settings: GameSettings, maxPlayers: number) => void;
+  onCreateRoom: (playerName: string, settings: GameSettings, maxPlayers: number, password?: string) => void;
   onJoinRoom: (code: string, playerName: string) => void;
   isSupabaseEnabled: boolean;
 }
@@ -29,12 +30,13 @@ export function RoomLobby({
   // Create room form state
   const [createName, setCreateName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
+  const [password, setPassword] = useState('');
   const [createSettings, setCreateSettings] = useState<GameSettings>({
     rounds: 3,
     penaltyOnSameNumber: false,
   });
 
-  // Join room form state
+  // Join by code (fallback)
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
 
@@ -51,8 +53,8 @@ export function RoomLobby({
         <div className="bg-black/30 rounded-xl p-4 text-left text-xs text-white/50 space-y-2">
           <p className="text-white/70 font-semibold text-sm mb-2">設定手順:</p>
           <p>1. <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-blue-400 underline">console.firebase.google.com</a> でプロジェクト作成</p>
-          <p>2. <strong className="text-white/70">Database と Storage → Realtime Database</strong> を作成（テストモード）</p>
-          <p>3. プロジェクト設定 → マイアプリ → Config を選択してキーをコピー</p>
+          <p>2. <strong className="text-white/70">Database → Realtime Database</strong> を作成（テストモード）</p>
+          <p>3. プロジェクト設定 → マイアプリ → Config をコピー</p>
           <p>4. Vercel の <strong className="text-white/70">Environment Variables</strong> に追加:</p>
           <div className="bg-black/40 rounded p-2 mt-1 text-green-400 font-mono text-xs break-all">
             <p>NEXT_PUBLIC_FIREBASE_API_KEY</p>
@@ -83,7 +85,7 @@ export function RoomLobby({
                 : 'text-white/50 hover:text-white/70',
             ].join(' ')}
           >
-            {tab === 'create' ? 'ルームを作る' : 'ルームに参加'}
+            {tab === 'create' ? 'ルームを作る' : 'ルームに入る'}
           </button>
         ))}
       </div>
@@ -136,9 +138,7 @@ export function RoomLobby({
                 <button
                   key={r}
                   type="button"
-                  onClick={() =>
-                    setCreateSettings((s) => ({ ...s, rounds: r }))
-                  }
+                  onClick={() => setCreateSettings((s) => ({ ...s, rounds: r }))}
                   className={[
                     'flex-1 py-2 rounded-lg font-bold text-sm transition-all',
                     createSettings.rounds === r
@@ -182,9 +182,32 @@ export function RoomLobby({
             </button>
           </div>
 
+          {/* Password */}
+          <div>
+            <label className="block text-white/60 text-xs mb-1.5">
+              パスワード
+              <span className="text-white/40 ml-1">— 空白で公開ルーム</span>
+            </label>
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              maxLength={20}
+              placeholder="設定しない場合は空白のまま"
+              className="w-full bg-white/10 text-white placeholder-white/30 rounded-lg px-3 py-2 text-sm border border-white/10 focus:border-yellow-400/60 focus:outline-none"
+            />
+          </div>
+
           <button
             type="button"
-            onClick={() => onCreateRoom(createName.trim() || generateRandomName(), createSettings, maxPlayers)}
+            onClick={() =>
+              onCreateRoom(
+                createName.trim() || generateRandomName(),
+                createSettings,
+                maxPlayers,
+                password.trim() || undefined,
+              )
+            }
             className="w-full py-3 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-bold rounded-xl transition-all"
           >
             ルームを作成する
@@ -192,9 +215,25 @@ export function RoomLobby({
         </div>
       )}
 
-      {/* Join room tab */}
+      {/* Join tab — room list + code fallback */}
       {activeTab === 'join' && (
         <div className="space-y-4">
+          {/* Primary: room list */}
+          <Link
+            href="/online/rooms"
+            className="flex items-center justify-between w-full px-4 py-4 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold rounded-xl transition-all"
+          >
+            <span>募集中のルーム一覧を見る</span>
+            <span className="text-xl">→</span>
+          </Link>
+
+          <div className="flex items-center gap-3 text-white/30 text-xs">
+            <div className="flex-1 h-px bg-white/10" />
+            コードで直接入る
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
+          {/* Fallback: join by code */}
           <div>
             <label className="block text-white/60 text-xs mb-1.5">ルームコード</label>
             <input
@@ -225,9 +264,9 @@ export function RoomLobby({
               onJoinRoom(joinCode, joinName.trim() || generateRandomName())
             }
             disabled={joinCode.length < 4}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"
+            className="w-full py-3 bg-white/15 hover:bg-white/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all"
           >
-            ルームに参加する
+            コードで参加する
           </button>
         </div>
       )}

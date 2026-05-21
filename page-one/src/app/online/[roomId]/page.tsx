@@ -10,6 +10,7 @@ import {
   getRoom,
   subscribeToRoom,
   updateGameState,
+  finishRoom,
 } from '@/lib/firebase';
 import GameBoard from '@/components/GameBoard';
 import RoundEndScreen from '@/components/RoundEndScreen';
@@ -237,6 +238,14 @@ function ActiveOnlineGame({
     onContinueAfterRound,
     onResetGame,
   } = useGame(initialState, { playerId, roomId });
+
+  // Mark room as finished when game ends so it disappears from the room list
+  useEffect(() => {
+    if (state.phase === 'game_end') {
+      finishRoom(roomId).catch(console.error);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
 
   return (
     <div className="min-h-screen felt-table relative">

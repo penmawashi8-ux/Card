@@ -13,12 +13,12 @@ export default function OnlinePage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  async function handleCreateRoom(playerName: string, settings: GameSettings) {
+  async function handleCreateRoom(playerName: string, settings: GameSettings, password?: string) {
     setErrorMsg(null);
     setLoading(true);
     try {
       const playerConfig = [{ name: playerName, type: 'human' as const }];
-      const room = await createRoom(hostId, settings, playerConfig);
+      const room = await createRoom(hostId, settings, playerConfig, password);
       if (!room) {
         setErrorMsg('ルームの作成に失敗しました。もう一度お試しください。');
         return;
