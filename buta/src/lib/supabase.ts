@@ -106,6 +106,7 @@ function generateRoomCode(): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapToRoom(id: string, data: Record<string, any>): Room {
+  const players = toArray<RoomPlayer>(data.players);
   return {
     id,
     code:       data.code,
@@ -113,11 +114,12 @@ function mapToRoom(id: string, data: Record<string, any>): Room {
     status:     data.status,
     gameState:  normalizeGameState(data.gameState),
     settings:   data.settings,
-    players:    toArray<RoomPlayer>(data.players),
+    players,
     maxPlayers: data.maxPlayers ?? 4,
     password:   data.password ?? null,
     isPublic:   data.isPublic ?? true,
-    hostName:   data.hostName ?? '',
+    // Fall back to first player's name for rooms created before hostName was added
+    hostName:   data.hostName || players[0]?.name || '',
     createdAt:  data.createdAt ?? 0,
   };
 }
@@ -314,6 +316,8 @@ export function subscribeToRoomList(
   const database = getDb();
   if (!database) return null;
 
+  const THREE_HOURS = 3 * 60 * 60 * 1000;
+
   const waitingQuery = query(
     ref(database, 'rooms'),
     orderByChild('status'),
@@ -322,10 +326,22 @@ export function subscribeToRoomList(
 
   const unsubscribe = onValue(waitingQuery, (snapshot) => {
     const rooms: Room[] = [];
+    const staleIds: string[] = [];
+
     snapshot.forEach((child) => {
-      rooms.push(mapToRoom(child.key!, child.val()));
+      const room = mapToRoom(child.key!, child.val());
+      // createdAt===0 means the room was created before this field was added (legacy)
+      const isStale = room.createdAt === 0 || Date.now() - room.createdAt > THREE_HOURS;
+      if (isStale) {
+        staleIds.push(room.id);
+      } else {
+        rooms.push(room);
+      }
     });
-    // Newest rooms first
+
+    // Mark stale rooms as finished so they disappear from future queries
+    for (const id of staleIds) finishRoom(id).catch(console.error);
+
     rooms.sort((a, b) => b.createdAt - a.createdAt);
     callback(rooms);
   });
