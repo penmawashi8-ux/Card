@@ -12,10 +12,13 @@ import {
   update,
   onValue,
   push,
+  query,
+  orderByChild,
+  equalTo,
   type Database,
 } from 'firebase/database';
 
-import type { GameSettings, GameState, Room, PlayerSetupConfig } from '@/types/game';
+import type { GameSettings, GameState, Room, OnlinePlayer, PlayerSetupConfig } from '@/types/game';
 
 // ─── Firebase init ────────────────────────────────────────────────────────────
 
@@ -58,7 +61,7 @@ function generateRoomCode(): string {
   return code;
 }
 
-// ─── Data mapper ──────────────────────────────────────────────────────────────
+// ─── Array normalization ──────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toArray(v: any): any[] {
@@ -67,8 +70,6 @@ function toArray(v: any): any[] {
   return Object.values(v);
 }
 
-// Firebase drops empty arrays (stores them as null). Restore them so game logic
-// never sees null where it expects an array.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeGameState(gs: any): any {
   if (!gs) return gs;
@@ -88,6 +89,8 @@ function normalizeGameState(gs: any): any {
   };
 }
 
+// ─── Data mapper ──────────────────────────────────────────────────────────────
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapToRoom(id: string, data: Record<string, any>): Room {
   return {
@@ -98,6 +101,10 @@ function mapToRoom(id: string, data: Record<string, any>): Room {
     gameState: data.gameState ? normalizeGameState(data.gameState) : null,
     settings:  data.settings,
     players:   Array.isArray(data.players) ? data.players : Object.values(data.players ?? {}),
+    password:  data.password ?? null,
+    isPublic:  data.isPublic ?? true,
+    hostName:  data.hostName ?? '',
+    createdAt: data.createdAt ?? 0,
   };
 }
 
@@ -107,12 +114,14 @@ export async function createRoom(
   hostId: string,
   settings: GameSettings,
   playerConfigs: PlayerSetupConfig[],
+  password?: string,
 ): Promise<Room | null> {
   const database = getDb();
   if (!database) return null;
 
   const code = generateRoomCode();
   const newRoomRef = push(ref(database, 'pageone/rooms'));
+  const hostName = playerConfigs[0]?.name ?? '';
 
   const roomData = {
     code,
@@ -120,6 +129,10 @@ export async function createRoom(
     status: 'waiting',
     gameState: null,
     settings,
+    password:  password || null,
+    isPublic:  !password,
+    hostName,
+    createdAt: Date.now(),
     players: playerConfigs.map((cfg, i) => ({
       id:      i === 0 ? hostId : `player-${i}`,
       name:    cfg.name,
@@ -133,12 +146,13 @@ export async function createRoom(
   return mapToRoom(newRoomRef.key!, roomData);
 }
 
-// ─── joinRoom ─────────────────────────────────────────────────────────────────
+// ─── joinRoom (by room code) ──────────────────────────────────────────────────
 
 export async function joinRoom(
   code: string,
   playerId: string,
   playerName: string,
+  password?: string,
 ): Promise<Room | null> {
   const database = getDb();
   if (!database) return null;
@@ -153,14 +167,53 @@ export async function joinRoom(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = roomSnap.val() as Record<string, any>;
   if (data.status !== 'waiting') return null;
+  if (data.password && data.password !== password) return null;
 
   const players = [
-    ...(data.players ?? []),
+    ...(Array.isArray(data.players) ? data.players : Object.values(data.players ?? {})),
     { id: playerId, name: playerName, isHost: false, isReady: false },
   ];
 
   await update(ref(database, `pageone/rooms/${roomId}`), { players });
   return mapToRoom(roomId, { ...data, players });
+}
+
+// ─── joinRoomById (from room list) ────────────────────────────────────────────
+
+export async function joinRoomById(
+  roomId: string,
+  playerId: string,
+  playerName: string,
+  password?: string,
+): Promise<Room | null> {
+  const database = getDb();
+  if (!database) return null;
+
+  try {
+    const roomSnap = await get(ref(database, `pageone/rooms/${roomId}`));
+    if (!roomSnap.exists()) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = roomSnap.val() as Record<string, any>;
+    if (data.status !== 'waiting') return null;
+    if (data.password && data.password !== password) return null;
+
+    const existingPlayers: OnlinePlayer[] = Array.isArray(data.players)
+      ? data.players
+      : Object.values(data.players ?? {});
+    if (existingPlayers.length >= (data.settings?.playerCount ?? 4)) return null;
+
+    const players = [
+      ...existingPlayers,
+      { id: playerId, name: playerName, isHost: false, isReady: false },
+    ];
+
+    await update(ref(database, `pageone/rooms/${roomId}`), { players });
+    return mapToRoom(roomId, { ...data, players });
+  } catch (err) {
+    console.error('[firebase] joinRoomById error:', err);
+    return null;
+  }
 }
 
 // ─── getRoom ──────────────────────────────────────────────────────────────────
@@ -193,6 +246,18 @@ export async function updateGameState(
   }
 }
 
+// ─── finishRoom ───────────────────────────────────────────────────────────────
+
+export async function finishRoom(roomId: string): Promise<void> {
+  const database = getDb();
+  if (!database) return;
+  try {
+    await update(ref(database, `pageone/rooms/${roomId}`), { status: 'finished' });
+  } catch (err) {
+    console.error('[firebase] finishRoom error:', err);
+  }
+}
+
 // ─── subscribeToRoom ──────────────────────────────────────────────────────────
 
 export function subscribeToRoom(
@@ -206,6 +271,32 @@ export function subscribeToRoom(
     if (snapshot.exists()) {
       callback(mapToRoom(roomId, snapshot.val()));
     }
+  });
+
+  return { unsubscribe };
+}
+
+// ─── subscribeToRoomList ──────────────────────────────────────────────────────
+
+export function subscribeToRoomList(
+  callback: (rooms: Room[]) => void,
+): { unsubscribe: () => void } | null {
+  const database = getDb();
+  if (!database) return null;
+
+  const waitingQuery = query(
+    ref(database, 'pageone/rooms'),
+    orderByChild('status'),
+    equalTo('waiting'),
+  );
+
+  const unsubscribe = onValue(waitingQuery, (snapshot) => {
+    const rooms: Room[] = [];
+    snapshot.forEach((child) => {
+      rooms.push(mapToRoom(child.key!, child.val()));
+    });
+    rooms.sort((a, b) => b.createdAt - a.createdAt);
+    callback(rooms);
   });
 
   return { unsubscribe };

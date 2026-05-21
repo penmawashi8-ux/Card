@@ -110,6 +110,10 @@ export interface Room {
   gameState: GameState | null;
   settings: GameSettings;
   players: OnlinePlayer[];
+  password: string | null;
+  isPublic: boolean;
+  hostName: string;
+  createdAt: number;     // Unix ms timestamp
 }
 
 // ─── Setup Config ─────────────────────────────────────────────────────────────

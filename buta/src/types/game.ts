@@ -68,7 +68,7 @@ export interface GameState {
 
 export type GameMode = 'cpu' | 'online' | 'hybrid';
 
-export type RoomStatus = 'waiting' | 'playing' | 'ended';
+export type RoomStatus = 'waiting' | 'playing' | 'finished';
 
 export interface Room {
   id: string;
@@ -79,6 +79,10 @@ export interface Room {
   settings: GameSettings;
   players: RoomPlayer[];
   maxPlayers: number;    // total slots (humans fill first, CPUs fill the rest)
+  password: string | null;
+  isPublic: boolean;
+  hostName: string;
+  createdAt: number;     // Unix ms timestamp
 }
 
 export interface RoomPlayer {
