@@ -1,0 +1,49 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-buta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Deploy buta to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROJECT_ID: ${{ secrets.VERCEL_BUTA_PROJECT_ID }}
+        run: |
+          npm install -g vercel
+          ORG_ID=$(curl -sf \
+            "https://api.vercel.com/v9/projects/$PROJECT_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            | jq -r '.accountId')
+          mkdir -p buta/.vercel
+          echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$ORG_ID\"}" > buta/.vercel/project.json
+          cd buta && vercel deploy --prod --token=$VERCEL_TOKEN --yes
+
+  deploy-page-one:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Deploy page-one to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROJECT_ID: ${{ secrets.VERCEL_PAGE_ONE_PROJECT_ID }}
+        run: |
+          npm install -g vercel
+          ORG_ID=$(curl -sf \
+            "https://api.vercel.com/v9/projects/$PROJECT_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            | jq -r '.accountId')
+          mkdir -p page-one/.vercel
+          echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$ORG_ID\"}" > page-one/.vercel/project.json
+          cd page-one && vercel deploy --prod --token=$VERCEL_TOKEN --yes
