@@ -123,7 +123,7 @@ export default function Home() {
             href="https://www.boardgamecat.com"
             className="text-white/40 hover:text-white/70 text-xs transition-colors"
           >
-            ← ゲームカタログへ戻る
+            ← トップに戻る
           </a>
         </div>
       </div>

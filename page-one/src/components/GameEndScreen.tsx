@@ -100,7 +100,7 @@ export default function GameEndScreen({
               href="https://www.boardgamecat.com"
               className="btn-secondary flex-1 text-base text-center"
             >
-              ゲームカタログへ
+              トップに戻る
             </a>
           </div>
         </div>
