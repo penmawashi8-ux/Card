@@ -117,6 +117,15 @@ export default function Home() {
         <p className="text-center text-white/20 text-xs mt-6">
           3〜6人対応 · CPU 3難易度 · オンライン対応
         </p>
+
+        <div className="mt-4 text-center">
+          <a
+            href="https://www.boardgamecat.com"
+            className="text-white/40 hover:text-white/70 text-xs transition-colors"
+          >
+            ← ゲームカタログへ戻る
+          </a>
+        </div>
       </div>
     </div>
   );
