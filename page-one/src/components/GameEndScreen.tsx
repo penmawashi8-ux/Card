@@ -88,13 +88,21 @@ export default function GameEndScreen({
         </div>
 
         {/* Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button onClick={onPlayAgain} className="btn-primary flex-1 text-base">
+        <div className="flex flex-col gap-3">
+          <button onClick={onPlayAgain} className="btn-primary w-full text-base">
             もう一度プレイ
           </button>
-          <button onClick={onReturnToMenu} className="btn-secondary flex-1 text-base">
-            メニューへ
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button onClick={onReturnToMenu} className="btn-secondary flex-1 text-base">
+              ゲームトップへ
+            </button>
+            <a
+              href="https://www.boardgamecat.com"
+              className="btn-secondary flex-1 text-base text-center"
+            >
+              ゲームカタログへ
+            </a>
+          </div>
         </div>
       </div>
     </div>
