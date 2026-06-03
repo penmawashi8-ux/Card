@@ -25,7 +25,9 @@ jobs:
             | jq -r '.accountId')
           mkdir -p .vercel
           echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$ORG_ID\"}" > .vercel/project.json
-          vercel deploy --prod --token=$VERCEL_TOKEN --yes
+          DEPLOY_URL=$(vercel deploy --prod --token=$VERCEL_TOKEN --yes 2>&1 | grep -E '^https://' | tail -1)
+          echo "Deployed: $DEPLOY_URL"
+          vercel alias "$DEPLOY_URL" buta.boardgamecat.com --token=$VERCEL_TOKEN --yes || true
 
   deploy-page-one:
     runs-on: ubuntu-latest
@@ -46,4 +48,6 @@ jobs:
             | jq -r '.accountId')
           mkdir -p .vercel
           echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$ORG_ID\"}" > .vercel/project.json
-          vercel deploy --prod --token=$VERCEL_TOKEN --yes
+          DEPLOY_URL=$(vercel deploy --prod --token=$VERCEL_TOKEN --yes 2>&1 | grep -E '^https://' | tail -1)
+          echo "Deployed: $DEPLOY_URL"
+          vercel alias "$DEPLOY_URL" pageone.boardgamecat.com --token=$VERCEL_TOKEN --yes || true
