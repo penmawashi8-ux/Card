@@ -52,6 +52,7 @@ function generateRoomCode(): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapToRoom(id: string, data: Record<string, any>): Room {
+  const players = data.players ?? [];
   return {
     id,
     code:      data.code,
@@ -59,7 +60,11 @@ function mapToRoom(id: string, data: Record<string, any>): Room {
     status:    data.status,
     gameState: data.gameState ?? null,
     settings:  data.settings,
-    players:   data.players ?? [],
+    players,
+    password:  data.password ?? null,
+    isPublic:  data.isPublic ?? true,
+    hostName:  data.hostName || players[0]?.name || '',
+    createdAt: data.createdAt ?? 0,
   };
 }
 
@@ -74,12 +79,17 @@ export async function createRoom(
   const code = generateRoomCode();
   const newRoomRef = push(ref(database, 'pageone/rooms'));
 
+  const hostName = playerConfigs[0]?.name ?? '';
   const roomData = {
     code,
     hostId,
     status: 'waiting',
     gameState: null,
     settings,
+    password:  null,
+    isPublic:  true,
+    hostName,
+    createdAt: Date.now(),
     players: playerConfigs.map((cfg, i) => ({
       id:      i === 0 ? hostId : `player-${i}`,
       name:    cfg.name,
