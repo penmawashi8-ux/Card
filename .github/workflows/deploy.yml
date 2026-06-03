@@ -23,9 +23,9 @@ jobs:
             "https://api.vercel.com/v9/projects/$PROJECT_ID" \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             | jq -r '.accountId')
-          mkdir -p buta/.vercel
-          echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$ORG_ID\"}" > buta/.vercel/project.json
-          cd buta && vercel deploy --prod --token=$VERCEL_TOKEN --yes
+          mkdir -p .vercel
+          echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$ORG_ID\"}" > .vercel/project.json
+          vercel deploy --prod --token=$VERCEL_TOKEN --yes
 
   deploy-page-one:
     runs-on: ubuntu-latest
@@ -44,6 +44,6 @@ jobs:
             "https://api.vercel.com/v9/projects/$PROJECT_ID" \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             | jq -r '.accountId')
-          mkdir -p page-one/.vercel
-          echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$ORG_ID\"}" > page-one/.vercel/project.json
-          cd page-one && vercel deploy --prod --token=$VERCEL_TOKEN --yes
+          mkdir -p .vercel
+          echo "{\"projectId\":\"$PROJECT_ID\",\"orgId\":\"$ORG_ID\"}" > .vercel/project.json
+          vercel deploy --prod --token=$VERCEL_TOKEN --yes
