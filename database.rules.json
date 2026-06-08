@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "pageone": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
