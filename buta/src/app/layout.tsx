@@ -2,12 +2,9 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { SITE_URL as siteUrl } from '@/lib/siteUrl';
 
 const inter = Inter({ subsets: ['latin'] });
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -53,11 +50,17 @@ export const metadata: Metadata = {
       'ぶたのしっぽを無料でブラウザプレイ！3〜6人対応、CPU 3段階難易度、オンライン対戦対応。',
     images: ['/opengraph-image'],
   },
+  // このサブドメインはゲーム本体で、クローラーが読める本文が150字ほどしかない。
+  // 審査対象ドメイン boardgamecat.com に本文のないページを並べることになり、
+  // AdSense の「screens without publisher-content」に当たるため
+  // 検索インデックスから外す。説明文を持つ正規のページは
+  // https://boardgamecat.com/games/pig-tail 側。
+  // follow は残し、トップへ戻るリンクの評価は渡す。
   robots: {
-    index: true,
+    index: false,
     follow: true,
     googleBot: {
-      index: true,
+      index: false,
       follow: true,
     },
   },
