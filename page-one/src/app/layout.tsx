@@ -5,9 +5,7 @@ import { UpdateBanner } from '@/components/UpdateBanner';
 
 const inter = Inter({ subsets: ['latin'] });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+import { SITE_URL as siteUrl } from '@/lib/siteUrl';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -53,11 +51,17 @@ export const metadata: Metadata = {
       'ページワンを無料でブラウザプレイ！53枚を使うトリックテイキングゲーム。3〜4人対応、CPU対戦、オンライン対戦対応。',
     images: ['/opengraph-image'],
   },
+  // このサブドメインはゲーム本体で、クローラーが読める本文が140字ほどしかない。
+  // 審査対象ドメイン boardgamecat.com に本文のないページを並べることになり、
+  // AdSense の「screens without publisher-content」に当たるため
+  // 検索インデックスから外す。説明文を持つ正規のページは
+  // https://boardgamecat.com/games/page-one 側。
+  // follow は残し、トップへ戻るリンクの評価は渡す。
   robots: {
-    index: true,
+    index: false,
     follow: true,
     googleBot: {
-      index: true,
+      index: false,
       follow: true,
     },
   },
