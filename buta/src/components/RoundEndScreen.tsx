@@ -19,17 +19,16 @@ export default function RoundEndScreen({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="glass max-w-md w-full p-8 text-center animate-bounce-in">
         <h2 className="text-2xl font-bold text-yellow-300 mb-1">
-          Round {state.currentRound} Complete!
+          ラウンド {state.currentRound} 終了！
         </h2>
         <p className="text-white/60 text-sm mb-6">
-          {state.settings.rounds - state.currentRound} round
-          {state.settings.rounds - state.currentRound !== 1 ? 's' : ''} remaining
+          残り {state.settings.rounds - state.currentRound} ラウンド
         </p>
 
         {/* Standings */}
         <div className="bg-black/30 rounded-xl p-4 mb-6">
           <h3 className="text-white/60 text-xs uppercase tracking-wide mb-3">
-            Round Standings
+            ラウンド順位
           </h3>
           <div className="space-y-2">
             {standings.map((player, rank) => (
@@ -77,7 +76,7 @@ export default function RoundEndScreen({
           onClick={onNextRound}
           className="btn-primary w-full text-lg"
         >
-          Next Round →
+          次のラウンドへ →
         </button>
       </div>
     </div>

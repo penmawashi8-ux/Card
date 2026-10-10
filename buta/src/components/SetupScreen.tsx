@@ -267,12 +267,12 @@ export default function SetupScreen({ onStart }: SetupScreenProps) {
 
         {/* Rules summary */}
         <div className="mt-6 glass p-4 text-white/50 text-xs space-y-1">
-          <p className="font-semibold text-white/70 mb-2">Quick Rules</p>
-          <p>• 52 cards laid in a circle, face-down (the pig&apos;s tail)</p>
-          <p>• On your turn, flip a card from the circle onto the central pile</p>
-          <p>• If it matches the top card&apos;s <strong className="text-white/70">suit</strong> → penalty! Take all pile cards</p>
-          <p>• Or play a known card from your hand instead (strategic!)</p>
-          <p>• Fewest hand cards at the end wins</p>
+          <p className="font-semibold text-white/70 mb-2">かんたんルール</p>
+          <p>• 52枚のカードを裏向きの円形に並べます（これが「ぶたのしっぽ」）</p>
+          <p>• 自分の番になったら、円から1枚めくって中央に重ねます</p>
+          <p>• 台札と<strong className="text-white/70">マーク</strong>が同じならペナルティ。山をすべて引き取ります</p>
+          <p>• 手札の中身が分かっているカードを代わりに出すこともできます</p>
+          <p>• 最後に手札がいちばん少ない人の勝ちです</p>
         </div>
       </div>
     </div>

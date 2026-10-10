@@ -30,8 +30,8 @@ export default function GameEndScreen({
         </h2>
         <p className="text-white/60 mb-2">
           {isViewerWinner
-            ? 'Congratulations! You have the fewest penalty cards.'
-            : `${winner.name} squealed to victory!`}
+            ? 'おめでとう！ペナルティがいちばん少なく終えました。'
+            : `${winner.name}の勝ちです！`}
         </p>
         <p className="text-white/40 text-sm mb-8">
           Game complete after {state.settings.rounds} round
@@ -82,7 +82,7 @@ export default function GameEndScreen({
                     >
                       {player.totalPenaltyCount}
                     </p>
-                    <p className="text-white/40 text-xs">penalty cards</p>
+                    <p className="text-white/40 text-xs">ペナルティ</p>
                   </div>
                 </div>
               );

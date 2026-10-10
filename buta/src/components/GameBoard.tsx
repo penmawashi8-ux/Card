@@ -39,7 +39,7 @@ export default function GameBoard({
       {/* ── Status bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between glass px-4 py-2">
         <div className="text-white/80 text-sm">
-          Round{' '}
+          ラウンド{' '}
           <span className="font-bold text-yellow-300">
             {state.currentRound}
           </span>{' '}
@@ -53,11 +53,11 @@ export default function GameBoard({
             }`}
           />
           <span className="text-white/80 text-sm font-medium">
-            {currentPlayer.name}&apos;s turn
+            {currentPlayer.name}のターン
           </span>
           {currentPlayer.type === 'cpu' && (
             <span className="text-xs text-white/50 animate-pulse">
-              thinking…
+              考え中…
             </span>
           )}
         </div>

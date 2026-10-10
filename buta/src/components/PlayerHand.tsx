@@ -71,15 +71,15 @@ export default function PlayerHand({
           )}
         </div>
         <div className="flex items-center gap-2 text-xs text-white/50">
-          <span>Round: {player.hand.length}</span>
+          <span>今回 {player.hand.length}枚</span>
           <span className="text-white/30">|</span>
-          <span>Total: {player.totalPenaltyCount}</span>
+          <span>累計 {player.totalPenaltyCount}枚</span>
         </div>
       </div>
 
       {/* Hand cards */}
       {!hasCards ? (
-        <div className="text-white/30 text-xs italic py-1">No penalty cards</div>
+        <div className="text-white/30 text-xs italic py-1">ペナルティなし</div>
       ) : isHumanControlled ? (
         /* Human player – show cards face-up */
         <div className="flex flex-wrap gap-1.5">
@@ -130,7 +130,7 @@ export default function PlayerHand({
             </span>
           )}
           <span className="ml-1 text-white/40 text-xs">
-            ({player.hand.length} cards)
+            （{player.hand.length}枚）
           </span>
         </div>
       )}
