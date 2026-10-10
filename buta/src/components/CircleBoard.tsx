@@ -152,7 +152,7 @@ export default function CircleBoard({
 
       {/* Remaining card count badge */}
       <div className="absolute bottom-1 right-2 text-white/50 text-xs">
-        {availableIndices.size} / {total} cards
+        残り {availableIndices.size} / {total} 枚
       </div>
     </div>
   );
