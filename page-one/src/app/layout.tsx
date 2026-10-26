@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { HandoffBridge } from '@/components/HandoffBridge';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -80,6 +81,7 @@ export default function RootLayout({
       <body className={`${inter.className} h-full antialiased`}>
         {children}
         <UpdateBanner />
+        <HandoffBridge />
       </body>
     </html>
   );

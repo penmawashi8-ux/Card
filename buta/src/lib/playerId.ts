@@ -8,8 +8,17 @@
 // そこで localStorage にも控えておき、タブに無ければそちらから拾う。
 // 書き込みは両方に行う。sessionStorage を先に見るのは、
 // 2つのタブでそれぞれ別の部屋に入っている場合に取り違えないため。
+//
+// ただし、ボドゲ広場の iframe から直接開いたタブへの引き継ぎはこれでは足りない。
+// iframe（buta.boardgamecat.com）と親（boardgamecat.com）は別オリジンで、
+// ブラウザによっては埋め込みの保存領域を親サイトごとに切り分けるため、
+// localStorage ごと見えないことがある。そのため親ページがリンクに付けてくれる
+// ?sid=... を保存領域より先に見る。送り出す側は components/HandoffBridge.tsx。
 
 const KEY = 'online_player_id';
+
+/** 親ページからの引き継ぎが載ってくるクエリ。 */
+const HANDOFF_PARAMS = ['sid', 'name'];
 
 function safeGet(store: Storage | undefined, key: string): string | null {
   try {
@@ -35,12 +44,33 @@ export function rememberPlayerId(playerId: string): void {
   safeSet(window.localStorage, KEY, playerId);
 }
 
+/** URLに載ってきた識別子。無ければ null。 */
+function fromUrl(): string | null {
+  try {
+    const sid = new URLSearchParams(window.location.search).get('sid');
+    // 発行しているのは useId() 由来か player-xxxxxxx 形式。
+    // 見慣れない形のものは受け取らない
+    return sid && /^[\w:«»-]{1,64}$/.test(sid) ? sid : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 覚えている識別子を返す。無ければ null。
- * このタブのもの → ブラウザ全体のもの、の順に探す。
+ * URLの引き継ぎ → このタブのもの → ブラウザ全体のもの、の順に探す。
+ *
+ * URLを最優先にするのは、親ページから渡された時点でそちらが本人だから。
+ * 保存領域が共有されているブラウザでは同じ値が来るので何も変わらない。
  */
 export function recallPlayerId(): string | null {
   if (typeof window === 'undefined') return null;
+  const handedOver = fromUrl();
+  if (handedOver) {
+    // このあとURLは掃除されるので、見つけた時点で控えておく
+    rememberPlayerId(handedOver);
+    return handedOver;
+  }
   const fromTab = safeGet(window.sessionStorage, KEY);
   if (fromTab) return fromTab;
   const fromBrowser = safeGet(window.localStorage, KEY);
@@ -50,4 +80,16 @@ export function recallPlayerId(): string | null {
     return fromBrowser;
   }
   return null;
+}
+
+/**
+ * 受け取り終わった引き継ぎをURLから消す。
+ * ルームのURLをそのまま人に送ったとき、相手が同じ席を名乗ってしまうのを避ける。
+ */
+export function clearHandoffParams(): void {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  if (!HANDOFF_PARAMS.some(p => url.searchParams.has(p))) return;
+  HANDOFF_PARAMS.forEach(p => url.searchParams.delete(p));
+  window.history.replaceState(null, '', url.pathname + url.search + url.hash);
 }
