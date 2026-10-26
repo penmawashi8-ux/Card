@@ -16,6 +16,7 @@ import GameBoard from '@/components/GameBoard';
 import RoundEndScreen from '@/components/RoundEndScreen';
 import GameEndScreen from '@/components/GameEndScreen';
 import SoundToggle from '@/components/SoundToggle';
+import { rememberPlayerId, recallPlayerId } from '@/lib/playerId';
 
 // ─── Page component ───────────────────────────────────────────────────────────
 
@@ -29,9 +30,9 @@ export default function OnlineRoomPage() {
   const [loading, setLoading] = useState(true);
   const playerIdRef = useRef<string>('');
   if (!playerIdRef.current) {
+    // このタブ → ブラウザ全体 の順に探す。別タブで開いても席に戻れるように。
     playerIdRef.current =
-      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('online_player_id')) ||
-      `player-${Math.random().toString(36).slice(2, 9)}`;
+      recallPlayerId() || `player-${Math.random().toString(36).slice(2, 9)}`;
   }
   const playerId = playerIdRef.current;
 

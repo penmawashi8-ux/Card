@@ -16,6 +16,7 @@ import GameBoard from '@/components/GameBoard';
 import RoundEndScreen from '@/components/RoundEndScreen';
 import GameEndScreen from '@/components/GameEndScreen';
 import type { Suit } from '@/types/game';
+import { rememberPlayerId, recallPlayerId } from '@/lib/playerId';
 
 export default function OnlineRoomPage() {
   const router = useRouter();
@@ -28,7 +29,8 @@ export default function OnlineRoomPage() {
   const fallbackId = useId();
   const [playerId] = useState(() => {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('pageone_my_player_id') || fallbackId;
+      // このタブ → ブラウザ全体 の順に探す。別タブで開いても席に戻れるように。
+      return recallPlayerId() || fallbackId;
     }
     return fallbackId;
   });

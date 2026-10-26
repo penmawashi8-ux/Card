@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { GameSettings } from '@/types/game';
 import { RoomLobby } from '@/components/RoomLobby';
 import { isSupabaseEnabled, createRoom, joinRoom } from '@/lib/supabase';
+import { rememberPlayerId, recallPlayerId } from '@/lib/playerId';
 
 export default function OnlinePage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function OnlinePage() {
     setLoading(true);
     try {
       const hostId = generatedId;
-      sessionStorage.setItem('online_player_id', hostId);
+      rememberPlayerId(hostId);
       const playerConfig = [{ name: playerName, type: 'human' as const, cpuDifficulty: 'normal' as const }];
       const room = await createRoom(hostId, settings, playerConfig, maxPlayers, password);
       if (!room) {
@@ -39,7 +40,7 @@ export default function OnlinePage() {
     setLoading(true);
     try {
       const playerId = `player-${Math.random().toString(36).slice(2, 9)}`;
-      sessionStorage.setItem('online_player_id', playerId);
+      rememberPlayerId(playerId);
       const room = await joinRoom(code, playerId, playerName);
       if (!room) {
         setErrorMsg('ルームが見つかりません。コードを確認してください。');

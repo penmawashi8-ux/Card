@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Room } from '@/types/game';
 import { isSupabaseEnabled, subscribeToRoomList, joinRoomById } from '@/lib/supabase';
+import { rememberPlayerId, recallPlayerId } from '@/lib/playerId';
 
 const RANDOM_PREFIXES = ['ぶた', 'パンダ', 'ネコ', 'キツネ', 'タヌキ', 'クマ', 'ウサギ', 'ライオン'];
 function randomName() {
@@ -57,7 +58,7 @@ export default function RoomsPage() {
     try {
       const name = joinName.trim() || randomName();
       const playerId = `player-${Math.random().toString(36).slice(2, 9)}`;
-      sessionStorage.setItem('online_player_id', playerId);
+      rememberPlayerId(playerId);
 
       const result = await joinRoomById(room.id, playerId, name, joinPassword.trim() || undefined);
       if (!result) {
